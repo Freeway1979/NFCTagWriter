@@ -14,8 +14,9 @@ struct ContentView: View {
     @State private var nfcMessage: String = ""
     @State private var nfcError: String = ""
     
+    @State private var textPassword: String = "5678"
     @State private var textRead: String = ""
-    @State private var textToWrite: String = "resume rule 129"
+    @State private var textToWrite: String = "resume rule xxx"
     @State private var tagInfo: NFCTagInfo? = nil
     
     var body: some View {
@@ -96,7 +97,7 @@ struct ContentView: View {
             }) {
                 HStack {
                     Image(systemName: "lock.fill")
-                    Text("Set Password (1234)")
+                    Text("Set Password (\(textPassword))")
                 }
                 .font(.headline)
                 .foregroundColor(.white)
@@ -160,7 +161,7 @@ struct ContentView: View {
                         .font(.headline)
                         .foregroundColor(.secondary)
                     VStack(alignment: .leading, spacing: 4) {
-                        ForEach(info.details.components(separatedBy: "\n"), id: \.self) { line in
+                        ForEach(Array(info.details.components(separatedBy: "\n").enumerated()), id: \.offset) { index, line in
                             Text(line)
                                 .font(.system(.caption, design: .monospaced))
                         }
@@ -240,6 +241,7 @@ struct ContentView: View {
         nfcError = ""
         scanner.onReadCompleted = nil
         scanner.onWriteCompleted = nil
+        scanner.textPassword = textPassword
         scanner.onSetPasswordCompleted = { (msg, error) in
             DispatchQueue.main.async {
                 if let error = error {

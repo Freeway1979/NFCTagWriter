@@ -16,6 +16,77 @@ struct NFCTagInfo {
     var details: String = ""
 }
 
+// NTAG21X Password Protection Pages Structure
+struct NTAG21XPasswordPages {
+    static let PWD_AUTH: UInt8 = 0x1B
+    let tagType: String
+    let auth0Page: UInt8
+    let accessPage: UInt8
+    let pwdPage: UInt8
+    let packPage: UInt8
+    let totalMemoryBytes: Int  // Actual total tag memory size
+    let totalMemoryPages: Int  // Actual total tag pages
+    
+    // Convert NDEF memory size to actual total tag memory size
+    // NDEF size is what's reported in CC, but actual tag has more memory
+    static func totalMemorySize(for ndefBytes: Int) -> Int {
+        switch ndefBytes {
+        case 144, 180:  // NTAG213 NDEF sizes
+            return 180  // Actual total: 180 bytes (45 pages)
+        case 496, 504:  // NTAG215 NDEF sizes
+            return 504  // Actual total: 504 bytes (126 pages)
+        case 872, 888:  // NTAG216 NDEF sizes
+            return 888  // Actual total: 888 bytes (222 pages)
+        default:
+            return ndefBytes  // Fallback: assume NDEF size = total size
+        }
+    }
+    
+    // Factory method to get pages based on NDEF memory size (from CC)
+    static func pages(for ndefBytes: Int) -> NTAG21XPasswordPages? {
+        let totalBytes = totalMemorySize(for: ndefBytes)
+        let totalPages = totalBytes / 4
+        
+        switch ndefBytes {
+        case 144, 180:  // NTAG213 NDEF memory size
+            // NTAG213 (45 pages total)
+            return NTAG21XPasswordPages(
+                tagType: "NTAG213",
+                auth0Page: 0x29,  // Page 41
+                accessPage: 0x2A, // Page 42
+                pwdPage: 0x2B,    // Page 43
+                packPage: 0x2C,   // Page 44
+                totalMemoryBytes: totalBytes,
+                totalMemoryPages: totalPages
+            )
+        case 496, 504:  // NTAG215 NDEF memory size
+            // NTAG215 (126 pages total)
+            return NTAG21XPasswordPages(
+                tagType: "NTAG215",
+                auth0Page: 0x83,  // Page 131
+                accessPage: 0x84, // Page 132
+                pwdPage: 0x85,     // Page 133
+                packPage: 0x86,    // Page 134
+                totalMemoryBytes: totalBytes,
+                totalMemoryPages: totalPages
+            )
+        case 872, 888:  // NTAG216 NDEF memory size
+            // NTAG216 (222 pages total)
+            return NTAG21XPasswordPages(
+                tagType: "NTAG216",
+                auth0Page: 0xE3,  // Page 227
+                accessPage: 0xE4, // Page 228
+                pwdPage: 0xE5,     // Page 229
+                packPage: 0xE6,    // Page 230
+                totalMemoryBytes: totalBytes,
+                totalMemoryPages: totalPages
+            )
+        default:
+            return nil
+        }
+    }
+}
+
 // Action types for NFC operations
 enum NFCActionType {
     case read
@@ -29,10 +100,6 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
     func tagReaderSessionDidBecomeActive(_ session: NFCTagReaderSession) {
         print("tagReaderSessionDidBecomeActive \(session.isReady)")
     }
-
-    // Define a 4-byte password (e.g., "ABCD" converted to hex bytes)
-    let ntagPassword: [UInt8] = [0x31, 0x32, 0x33, 0x34]
-    let passwordData: Data = Data("1234".prefix(4).utf8)
     
     var session: NFCTagReaderSession?
     
@@ -51,7 +118,10 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
     // Data for operations
     var textToWrite: String = ""
     var textRead: String = ""
-
+    var textPassword: String = ""
+    // Define a 4-byte password (e.g., "ABCD" converted to hex bytes)
+    var passwordData: Data { Data(textPassword.prefix(4).utf8) }
+    
     func beginWriting() {
         currentAction = .write
         session = NFCTagReaderSession(pollingOption: .iso14443, delegate: self, queue: nil)
@@ -79,16 +149,16 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
         session?.alertMessage = "Hold your iPhone near the NFC tag to read information."
         session?.begin()
     }
-
+    
     // --- NFCTagReaderSessionDelegate Methods ---
-
+    
     // 2. Handle Tag Detection
     func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
         guard let firstTag = tags.first else {
             session.invalidate(errorMessage: "No tag found.")
             return
         }
-
+        
         // Must connect to the tag before sending commands
         session.connect(to: firstTag) { [self] (error: Error?) in
             if let error = error {
@@ -98,16 +168,16 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
             
             // 3. Cast the detected tag to the MIFARE type
             if case let .miFare(miFareTag) = firstTag {
-               // Store strong reference to keep tag alive
-               self.currentTag = miFareTag
-               // Route to appropriate handler based on action type
-               self.handleTagAction(miFareTag: miFareTag, session: session)
+                // Store strong reference to keep tag alive
+                self.currentTag = miFareTag
+                // Route to appropriate handler based on action type
+                self.handleTagAction(miFareTag: miFareTag, session: session)
             } else {
                 session.invalidate(errorMessage: "Tag is not a compatible MIFARE type.")
             }
         }
     }
-
+    
     func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error) {
         // Handle session invalidation (e.g., error or success)
         print("Session invalidated: \(error.localizedDescription)")
@@ -134,7 +204,7 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
     func authenticateTag(miFareTag: NFCMiFareTag, session: NFCTagReaderSession) {
         
         // Construct the PWD_AUTH command: 0x1B followed by the 4-byte password
-        let authenticationCommand: Data = Data([0x1B]) + passwordData
+        let authenticationCommand: Data = Data([NTAG21XPasswordPages.PWD_AUTH]) + passwordData
         
         // Debug: Print password bytes being used for authentication
         print("=== Authentication Debug ===")
@@ -143,7 +213,7 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
         print("Password length: \(passwordData.count) bytes")
         print("Auth command (hex): \(authenticationCommand.map { String(format: "%02x", $0) }.joined(separator: " "))")
         print("Attempting to authenticate tag...")
-       
+        
         self.performAuthentication(miFareTag: miFareTag, session: session, command: authenticationCommand)
     }
     
@@ -175,13 +245,13 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                 self.handleAuthenticationError(error: error)
                 return
             }
-
+            
             // 2. Analyze response Data to determine protocol success
             // For Ultralight PWD_AUTH, success means receiving exactly 2 bytes (the PACK).
             // Failure often results in receiving 1 byte (NAK) or 0 bytes.
-
+            
             print("Raw response data: \(response as NSData), Length: \(response.count)")
-
+            
             if response.count == 2 {
                 // ✅ SUCCESS
                 // We received the 2-byte PACK (Password Acknowledge).
@@ -192,25 +262,25 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                 self.performAuthenticatedOperation(miFareTag: miFareTag, session: session)
                 return
             } else if response.count == 1 {
-                 // ❌ FAILED (Likely NAK)
-                 // Let's check if it's a standard MIFARE NAK
-                 let nakByte = response[0]
-                 print("Authentication failed. Tag returned NAK: 0x\(String(format:"%02X", nakByte))")
-                 
-                 // NAK 0x00 often means:
-                 // 1. Password protection is not enabled on the tag
-                 // 2. Wrong password format
-                 // 3. Password was not written correctly
-                 
-                 var errorMsg = "Authentication failed. Tag returned NAK: 0x\(String(format:"%02X", nakByte))"
-                 if nakByte == 0x00 {
-                     errorMsg += "\n\nPossible causes:"
-                     errorMsg += "\n1. Password protection may not be enabled (AUTH0/ACCESS not configured)"
-                     errorMsg += "\n2. Password format mismatch (check if password was written correctly)"
-                     errorMsg += "\n3. Tag may require password protection to be enabled before authentication"
-                 }
-                 
-                 print(errorMsg)
+                // ❌ FAILED (Likely NAK)
+                // Let's check if it's a standard MIFARE NAK
+                let nakByte = response[0]
+                print("Authentication failed. Tag returned NAK: 0x\(String(format:"%02X", nakByte))")
+                
+                // NAK 0x00 often means:
+                // 1. Password protection is not enabled on the tag
+                // 2. Wrong password format
+                // 3. Password was not written correctly
+                
+                var errorMsg = "Authentication failed. Tag returned NAK: 0x\(String(format:"%02X", nakByte))"
+                if nakByte == 0x00 {
+                    errorMsg += "\n\nPossible causes:"
+                    errorMsg += "\n1. Password protection may not be enabled (AUTH0/ACCESS not configured)"
+                    errorMsg += "\n2. Password format mismatch (check if password was written correctly)"
+                    errorMsg += "\n3. Tag may require password protection to be enabled before authentication"
+                }
+                
+                print(errorMsg)
                 self.currentTag = nil // Release tag reference on error
                 session.invalidate(errorMessage: errorMsg)
                 let authError = NSError(domain: "NFCScanner", code: -15, userInfo: [NSLocalizedDescriptionKey: errorMsg])
@@ -369,28 +439,76 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
             // CC structure: [Magic (0xE1), Version, SIZE(MLEN), Access]
             if ccPage[0] == 0xE1 {
                 let mlen = Int(ccPage[2])
-                let totalBytes = mlen * 8
-                let totalPages = totalBytes / 4
+                let ndefBytes = mlen * 8  // This is NDEF memory size, not total tag memory
                 
-                tagInfo.memorySize = "\(totalBytes) bytes (\(totalPages) pages)"
-                tagInfo.ndefMessageSize = "\(totalBytes) bytes"
-                
-                // Determine tag type based on memory size
-                switch totalBytes {
-                case 180:
-                    tagInfo.tagType = "NTAG213"
-                case 504:
-                    tagInfo.tagType = "NTAG215"
-                case 888:
-                    tagInfo.tagType = "NTAG216"
-                default:
-                    tagInfo.tagType = "NTAG (Unknown variant)"
+                // Get password protection pages based on NDEF memory size to determine correct tag type
+                guard let passwordPages = NTAG21XPasswordPages.pages(for: ndefBytes) else {
+                    // Tag doesn't support password protection - determine type from NDEF memory size
+                    let tagType: String
+                    switch ndefBytes {
+                    case 144, 180:  // NTAG213 NDEF sizes
+                        tagType = "NTAG213"
+                    case 496, 504:  // NTAG215 NDEF sizes
+                        tagType = "NTAG215"
+                    case 872, 888:  // NTAG216 NDEF sizes
+                        tagType = "NTAG216"
+                    default:
+                        tagType = "NTAG (Unknown variant)"
+                    }
+                    tagInfo.tagType = tagType
+                    
+                    // Calculate actual total memory (same as NDEF for unknown types)
+                    let totalBytes = NTAG21XPasswordPages.totalMemorySize(for: ndefBytes)
+                    let totalPages = totalBytes / 4
+                    
+                    // Build details string
+                    var details: [String] = []
+                    details.append("Serial: \(tagInfo.serialNumber)")
+                    details.append("Type: \(tagInfo.tagType)")
+                    details.append("Total Memory: \(totalBytes) bytes (\(totalPages) pages)")
+                    details.append("NDEF Size: \(ndefBytes) bytes")
+                    
+                    if ccPage.count >= 4 {
+                        details.append("CC Version: \(String(format: "0x%02X", ccPage[1]))")
+                        details.append("CC Access: \(String(format: "0x%02X", ccPage[3]))")
+                    }
+                    
+                    details.append("Password Protected: No (Tag does not support password protection)")
+                    tagInfo.details = details.joined(separator: "\n")
+                    self.currentTag = nil
+                    session.invalidate()
+                    self.onTagInfoCompleted?(tagInfo, nil)
+                    return
                 }
                 
-                // Read AUTH0 page (0x83) and ACCESS page (0x86) to check if password protection is enabled
-                // READ command reads 4 pages, so reading 0x83 gives us 0x83-0x86 (16 bytes total)
-                let readAuth0Command = Data([0x30, 0x83])
-                miFareTag.sendMiFareCommand(commandPacket: readAuth0Command) { [weak self] (auth0Response: Data, auth0Error: Error?) in
+                // Use the correct tag type from passwordPages struct
+                tagInfo.tagType = passwordPages.tagType
+                
+                // Build details string with actual total memory size
+                var details: [String] = []
+                details.append("Serial: \(tagInfo.serialNumber)")
+                details.append("Type: \(tagInfo.tagType)")
+                details.append("Total Memory: \(passwordPages.totalMemoryBytes) bytes (\(passwordPages.totalMemoryPages) pages)")
+                details.append("NDEF Size: \(ndefBytes) bytes")
+                
+                if ccPage.count >= 4 {
+                    details.append("CC Version: \(String(format: "0x%02X", ccPage[1]))")
+                    details.append("CC Access: \(String(format: "0x%02X", ccPage[3]))")
+                }
+                
+                // Add password protection page information
+                details.append("")
+                details.append("Password Protection Pages:")
+                details.append("  AUTH0: Page 0x\(String(format: "%02X", passwordPages.auth0Page)) (Page \(passwordPages.auth0Page))")
+                details.append("  ACCESS: Page 0x\(String(format: "%02X", passwordPages.accessPage)) (Page \(passwordPages.accessPage))")
+                
+                details.append("  PACK:  Page 0x\(String(format: "%02X", passwordPages.packPage)) (Page \(passwordPages.packPage))")
+                
+                print("📋 \(passwordPages.tagType) detected - reading password pages 0x\(String(format: "%02X", passwordPages.auth0Page))-0x\(String(format: "%02X", passwordPages.packPage))")
+                
+                // Read password protection pages (read from AUTH0 page to get all 4 pages)
+                let readAuth0Command = Data([0x30, passwordPages.auth0Page])
+                miFareTag.sendMiFareCommand(commandPacket: readAuth0Command) { [weak self, passwordPages] (auth0Response: Data, auth0Error: Error?) in
                     guard let self = self else { return }
                     
                     var auth0: UInt8 = 0xFF
@@ -398,18 +516,32 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                     
                     if let error = auth0Error {
                         print("⚠️ Error reading AUTH0/ACCESS pages: \(error.localizedDescription)")
+                        details.append("")
+                        details.append("Password Protection Status:")
+                        details.append("  Status: Unknown (Error reading password pages: \(error.localizedDescription))")
+                        tagInfo.details = details.joined(separator: "\n")
+                        self.currentTag = nil
+                        session.invalidate()
+                        self.onTagInfoCompleted?(tagInfo, nil)
+                        return
                     } else if auth0Response.count >= 16 {
-                        // Response structure when reading from page 0x83:
-                        // Bytes 0-3:   Page 0x83 [AUTH0, byte1, byte2, byte3]
-                        // Bytes 4-7:   Page 0x84
-                        // Bytes 8-11:  Page 0x85 [PWD bytes]
-                        // Bytes 12-15: Page 0x86 [PACK_H, PACK_L, ACCESS, RFUI]
+                        // Response structure: Reading from AUTH0 page returns 4 pages (16 bytes)
+                        // Bytes 0-3: AUTH0 page [AUTH0, ...]
+                        // Bytes 4-7: ACCESS page [..., ACCESS, ...]
+                        // Bytes 8-11: PWD page [PWD]
+                        // Bytes 12-15: PACK page [PACK]
                         
-                        // AUTH0 is the first byte of page 0x83
+                        // AUTH0 is always the first byte of the first page
                         auth0 = auth0Response[0]
                         
-                        // ACCESS is the third byte of page 0x86 (byte 14 of response)
-                        accessByte = auth0Response[14]
+                        // ACCESS is the third byte (index 2) of the ACCESS page
+                        // ACCESS page is always 1 page offset from AUTH0 page = 4 bytes, ACCESS is byte 2 of ACCESS page = byte 6
+                        if auth0Response.count > 6 {
+                            accessByte = auth0Response[6]
+                        } else {
+                            print("⚠️ Response truncated, ACCESS byte not available")
+                            accessByte = 0x00
+                        }
                         
                         print("📋 Tag Info Debug:")
                         print("   AUTH0: 0x\(String(format: "%02X", auth0))")
@@ -431,45 +563,36 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                         print("   AUTH0 configured: \(hasAuth0Configured)")
                         print("   ACCESS enabled: \(hasAccessEnabled)")
                         print("   Password Protected: \(tagInfo.isPasswordProtected)")
-                    } else {
-                        print("⚠️ Invalid AUTH0/ACCESS response length: \(auth0Response.count) bytes (expected 16)")
-                    }
-                    
-                    // Build details string
-                    var details: [String] = []
-                    details.append("Serial: \(tagInfo.serialNumber)")
-                    details.append("Type: \(tagInfo.tagType)")
-                    details.append("Memory: \(tagInfo.memorySize)")
-                    details.append("NDEF Size: \(tagInfo.ndefMessageSize)")
-                    
-                    // Show password protection status with more detail
-                    if tagInfo.isPasswordProtected {
-                        let accessEnabled = ((accessByte & 0x80) != 0)
-                        if accessEnabled {
-                            details.append("Password Protected: Yes (Active)")
+                        
+                        // Add password protection status
+                        details.append("")
+                        details.append("Password Protection Status:")
+                        if tagInfo.isPasswordProtected {
+                            if hasAccessEnabled {
+                                details.append("  Status: Yes (Active)")
+                            } else {
+                                details.append("  Status: Yes (Configured but not enforced)")
+                            }
                         } else {
-                            details.append("Password Protected: Yes (Configured but not enforced)")
+                            details.append("  Status: No")
+                        }
+                        
+                        // Add AUTH0 and ACCESS values
+                        details.append("  AUTH0 value: 0x\(String(format: "%02X", auth0))")
+                        details.append("  ACCESS value: 0x\(String(format: "%02X", accessByte))")
+                        
+                        // Show what ACCESS value means
+                        if (accessByte & 0x80) == 0 {
+                            details.append("  Note: ACCESS bit 7 not set - password not enforced")
                         }
                     } else {
-                        details.append("Password Protected: No")
-                    }
-                    
-                    if ccPage.count >= 4 {
-                        details.append("CC Version: \(String(format: "0x%02X", ccPage[1]))")
-                        details.append("CC Access: \(String(format: "0x%02X", ccPage[3]))")
-                    }
-                    
-                    // Add AUTH0 and ACCESS info for debugging
-                    details.append("AUTH0: \(String(format: "0x%02X", auth0))")
-                    details.append("ACCESS: \(String(format: "0x%02X", accessByte))")
-                    
-                    // Show what ACCESS value means
-                    if (accessByte & 0x80) == 0 {
-                        details.append("Note: ACCESS bit 7 not set - password not enforced")
+                        print("⚠️ Invalid AUTH0/ACCESS response length: \(auth0Response.count) bytes (expected 16)")
+                        details.append("")
+                        details.append("Password Protection Status:")
+                        details.append("  Status: Unknown (Could not read password pages)")
                     }
                     
                     tagInfo.details = details.joined(separator: "\n")
-                    
                     self.currentTag = nil
                     session.invalidate()
                     self.onTagInfoCompleted?(tagInfo, nil)
@@ -521,19 +644,23 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
     // Set password on NTAG tag and enable password protection
     func setPassword(miFareTag: NFCMiFareTag, session: NFCTagReaderSession) {
         print("=== Setting Password on NFC Tag ===")
-        print("Password to set: \"12345678\" (first 4 bytes: \"1234\")")
         print("Password bytes (hex): \(passwordData.map { String(format: "%02x", $0) }.joined(separator: " "))")
         print("Password bytes (ASCII): \(String(data: passwordData, encoding: .utf8) ?? "invalid")")
+        print("⚠️  IMPORTANT: Keep the tag near your device throughout the entire operation!")
         
-        // Step 1: Write password to page 0x85 (PWD)
-        print("\nStep 1: Writing password to page 0x85 (PWD)...")
-        let writePasswordCommand = Data([0xA2, 0x85]) + passwordData
+        // Ensure we have a strong reference to the tag
+        // Store strong reference to keep tag alive during operations
+        self.currentTag = miFareTag
         
-        miFareTag.sendMiFareCommand(commandPacket: writePasswordCommand) { [weak self] (response: Data, error: Error?) in
+        // First, check the tag type by reading the Capability Container
+        print("\nChecking tag type and capabilities...")
+        let readCCCommand = Data([0x30, 0x00]) // Read page 0 (returns pages 0-3)
+        
+        miFareTag.sendMiFareCommand(commandPacket: readCCCommand) { [weak self] (response: Data, error: Error?) in
             guard let self = self else { return }
             
             if let error = error {
-                let errorMsg = "Failed to write password: \(error.localizedDescription)"
+                let errorMsg = "Failed to read tag capabilities: \(error.localizedDescription)"
                 print("❌ \(errorMsg)")
                 self.currentTag = nil
                 session.invalidate(errorMessage: errorMsg)
@@ -541,18 +668,86 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                 return
             }
             
-            print("✅ Password written to page 0x85")
+            guard response.count >= 16 else {
+                let errorMsg = "Invalid tag response when reading capabilities"
+                print("❌ \(errorMsg)")
+                self.currentTag = nil
+                session.invalidate(errorMessage: errorMsg)
+                self.onSetPasswordCompleted?(nil, NSError(domain: "NFCScanner", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg]))
+                return
+            }
             
-            // Step 2: Set AUTH0 (page 0x83) - specifies which page requires authentication
-            // AUTH0 = 0x04 means page 4 and above require authentication
-            print("\nStep 2: Setting AUTH0 to 0x04 (page 4 requires authentication)...")
-            let auth0Page = Data([0xA2, 0x83, 0x04, 0x00, 0x00, 0x00]) // AUTH0=0x04, rest zeros
+            // Extract Capability Container from page 3 (bytes 12-15)
+            let ccPage = response.subdata(in: 12..<16)
             
-            miFareTag.sendMiFareCommand(commandPacket: auth0Page) { [weak self] (response: Data, error: Error?) in
+            // Check if it's a valid NDEF tag
+            guard ccPage[0] == 0xE1 else {
+                let errorMsg = "Tag is not NDEF formatted"
+                print("❌ \(errorMsg)")
+                self.currentTag = nil
+                session.invalidate(errorMessage: errorMsg)
+                self.onSetPasswordCompleted?(nil, NSError(domain: "NFCScanner", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg]))
+                return
+            }
+            
+            // Calculate NDEF memory size (from CC)
+            let mlen = Int(ccPage[2])
+            let ndefBytes = mlen * 8  // This is NDEF memory size, not total tag memory
+            
+            print("NDEF memory size: \(ndefBytes) bytes (from CC)")
+            
+            // Get password protection pages based on NDEF memory size
+            guard let passwordPages = NTAG21XPasswordPages.pages(for: ndefBytes) else {
+                let errorMsg = "Tag type not supported for password protection. NDEF memory: \(ndefBytes) bytes"
+                print("❌ \(errorMsg)")
+                self.currentTag = nil
+                session.invalidate(errorMessage: errorMsg)
+                self.onSetPasswordCompleted?(nil, NSError(domain: "NFCScanner", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg]))
+                return
+            }
+            
+            print("✅ \(passwordPages.tagType) detected - Total memory: \(passwordPages.totalMemoryBytes) bytes (\(passwordPages.totalMemoryPages) pages)")
+            print("   Using pages 0x\(String(format: "%02X", passwordPages.auth0Page)) (AUTH0), 0x\(String(format: "%02X", passwordPages.pwdPage)) (PWD), 0x\(String(format: "%02X", passwordPages.accessPage)) (ACCESS), 0x\(String(format: "%02X", passwordPages.packPage)) (PACK)")
+            
+            // Verify pages are within tag's actual memory range (not NDEF range)
+            if UInt(passwordPages.totalMemoryPages) <= UInt(passwordPages.auth0Page) || UInt(passwordPages.totalMemoryPages) <= UInt(passwordPages.pwdPage) || UInt(passwordPages.totalMemoryPages) <= UInt(passwordPages.accessPage) {
+                let errorMsg = "Tag does not have enough pages for password protection. Required pages: 0x\(String(format: "%02X", passwordPages.auth0Page)), 0x\(String(format: "%02X", passwordPages.pwdPage)), 0x\(String(format: "%02X", passwordPages.accessPage)), Available: \(passwordPages.totalMemoryPages) pages"
+                print("❌ \(errorMsg)")
+                self.currentTag = nil
+                session.invalidate(errorMessage: errorMsg)
+                self.onSetPasswordCompleted?(nil, NSError(domain: "NFCScanner", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg]))
+                return
+            }
+            
+            print("✅ Tag supports password protection")
+            
+            // Step 1: Write password to PWD page
+            print("\nStep 1: Writing password to page 0x\(String(format: "%02X", passwordPages.pwdPage)) (PWD)...")
+            let writePasswordCommand = Data([0xA2, passwordPages.pwdPage]) + self.passwordData
+            
+            // Use strong reference to tag (not weak) to keep it alive during the operation
+            // Capture both self, miFareTag, and passwordPages in the first closure
+            miFareTag.sendMiFareCommand(commandPacket: writePasswordCommand) { [weak self, passwordPages] (response: Data, error: Error?) in
                 guard let self = self else { return }
                 
+                // Re-check tag reference - it should still be alive
+                guard let tag = self.currentTag, tag === miFareTag else {
+                    let errorMsg = "Tag reference lost. Please keep the tag near your device and try again."
+                    print("❌ \(errorMsg)")
+                    session.invalidate(errorMessage: errorMsg)
+                    self.onSetPasswordCompleted?(nil, NSError(domain: "NFCScanner", code: 100, userInfo: [NSLocalizedDescriptionKey: errorMsg]))
+                    return
+                }
+                
                 if let error = error {
-                    let errorMsg = "Failed to set AUTH0: \(error.localizedDescription)"
+                    let nsError = error as NSError
+                    var errorMsg = "Failed to write password: \(error.localizedDescription)"
+                    
+                    // Provide helpful guidance for connection lost errors
+                    if nsError.code == 100 || error.localizedDescription.contains("connection lost") {
+                        errorMsg += "\n\nTip: Keep the tag steady and close to your device. Try again."
+                    }
+                    
                     print("❌ \(errorMsg)")
                     self.currentTag = nil
                     session.invalidate(errorMessage: errorMsg)
@@ -560,18 +755,35 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                     return
                 }
                 
-                print("✅ AUTH0 set to 0x04")
+                print("✅ Password written to page 0x\(String(format: "%02X", passwordPages.pwdPage))")
                 
-                // Step 3: Set ACCESS (page 0x86) - enables password protection
-                // ACCESS = 0x80 enables password protection, PACK = 0x0000 (no PACK required)
-                print("\nStep 3: Setting ACCESS to enable password protection...")
-                let accessPage = Data([0xA2, 0x86, 0x00, 0x00, 0x80, 0x00]) // PACK=0x0000, ACCESS=0x80
-                
-                miFareTag.sendMiFareCommand(commandPacket: accessPage) { [weak self] (response: Data, error: Error?) in
+                // Step 2: Set AUTH0 - specifies which page requires authentication
+                // AUTH0 = 0x04 means page 4 and above require authentication
+                print("\nStep 2: Setting AUTH0 to 0x04 on page 0x\(String(format: "%02X", passwordPages.auth0Page)) (page 4 requires authentication)...")
+                let auth0PageData = Data([0xA2, passwordPages.auth0Page, 0x04, 0x00, 0x00, 0x00]) // AUTH0=0x04, rest zeros
+                // Use the original tag reference directly, and capture it strongly in the closure
+                // This ensures the tag stays alive
+                miFareTag.sendMiFareCommand(commandPacket: auth0PageData) { [weak self, unowned tag = miFareTag, passwordPages] (response: Data, error: Error?) in
                     guard let self = self else { return }
                     
+                    // Verify tag is still the same reference
+                    guard self.currentTag === tag else {
+                        let errorMsg = "Tag reference changed. Please keep the tag near your device and try again."
+                        print("❌ \(errorMsg)")
+                        session.invalidate(errorMessage: errorMsg)
+                        self.onSetPasswordCompleted?(nil, NSError(domain: "NFCScanner", code: 100, userInfo: [NSLocalizedDescriptionKey: errorMsg]))
+                        return
+                    }
+                    
                     if let error = error {
-                        let errorMsg = "Failed to set ACCESS: \(error.localizedDescription)"
+                        let nsError = error as NSError
+                        var errorMsg = "Failed to set AUTH0: \(error.localizedDescription)"
+                        
+                        if nsError.code == 100 || error.localizedDescription.contains("connection lost") {
+                            errorMsg += "\n\nTip: Keep the tag steady and close to your device. Try again."
+                            errorMsg += "\nThe password was written but AUTH0 was not set. You may need to try again."
+                        }
+                        
                         print("❌ \(errorMsg)")
                         self.currentTag = nil
                         session.invalidate(errorMessage: errorMsg)
@@ -579,27 +791,45 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                         return
                     }
                     
-                    print("✅ ACCESS set to enable password protection")
+                    print("✅ AUTH0 set to 0x04 on page 0x\(String(format: "%02X", passwordPages.auth0Page))")
                     
-                    // Verify the password was written correctly
-                    print("\nStep 4: Verifying password was written correctly...")
-                    let readPasswordCommand = Data([0x30, 0x85])
-                    miFareTag.sendMiFareCommand(commandPacket: readPasswordCommand) { [weak self] (readResponse: Data, readError: Error?) in
+                    // Step 3: Set ACCESS - enables password protection
+                    // ACCESS = 0x80 enables password protection, PACK = 0x0000 (no PACK required)
+                    print("\nStep 3: Setting ACCESS to enable password protection on page 0x\(String(format: "%02X", passwordPages.accessPage))...")
+                    let accessPageData = Data([0xA2, passwordPages.accessPage, 0x00, 0x00, 0x80, 0x00]) // PACK=0x0000, ACCESS=0x80
+                    
+                    // Use the original tag reference directly
+                    miFareTag.sendMiFareCommand(commandPacket: accessPageData) { [weak self, unowned tag = miFareTag] (response: Data, error: Error?) in
                         guard let self = self else { return }
                         
-                        if let readError = readError {
-                            print("⚠️  Could not verify password: \(readError.localizedDescription)")
-                        } else {
-                            let storedPassword = readResponse.prefix(4)
-                            print("Password stored on tag (hex): \(storedPassword.map { String(format: "%02x", $0) }.joined(separator: " "))")
-                            
-                            if storedPassword == self.passwordData {
-                                print("✅ Password verification successful!")
-                            } else {
-                                print("⚠️  Password mismatch - stored: \(storedPassword.map { String(format: "%02x", $0) }.joined(separator: " "))")
-                            }
+                        // Verify tag is still the same reference
+                        guard self.currentTag === tag else {
+                            let errorMsg = "Tag reference changed. Please keep the tag near your device and try again."
+                            print("❌ \(errorMsg)")
+                            session.invalidate(errorMessage: errorMsg)
+                            self.onSetPasswordCompleted?(nil, NSError(domain: "NFCScanner", code: 100, userInfo: [NSLocalizedDescriptionKey: errorMsg]))
+                            return
                         }
                         
+                        if let error = error {
+                            let nsError = error as NSError
+                            var errorMsg = "Failed to set ACCESS: \(error.localizedDescription)"
+                            
+                            if nsError.code == 100 || error.localizedDescription.contains("connection lost") {
+                                errorMsg += "\n\nTip: Keep the tag steady and close to your device. Try again."
+                                errorMsg += "\nPassword and AUTH0 were set, but ACCESS was not. You may need to try again."
+                            }
+                            
+                            print("❌ \(errorMsg)")
+                            self.currentTag = nil
+                            session.invalidate(errorMessage: errorMsg)
+                            self.onSetPasswordCompleted?(nil, error)
+                            return
+                        }
+                        
+                        print("✅ ACCESS set to enable password protection")
+                        
+                        // Complete the operation without verification to avoid connection loss
                         let successMsg = "Password set successfully! Tag is now password-protected."
                         session.alertMessage = successMsg
                         self.currentTag = nil
@@ -632,7 +862,7 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                 completion(.failure(NFCReaderError(.readerErrorInvalidParameter)))
                 return
             }
-
+            
             let cmd = Data([0x30, page]) // Command 0x30 = READ (Returns 4 pages / 16 bytes)
             
             tag.sendMiFareCommand(commandPacket: cmd) { response, error in
@@ -715,8 +945,8 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                     // Quick check to ensure next request is valid
                     if maxUserPage > 0 && nextPage > UInt8(maxUserPage) {
                         // If the next block is out of bounds, we stop.
-                         completion(.failure(NFCReaderError(.readerErrorInvalidParameter)))
-                         return
+                        completion(.failure(NFCReaderError(.readerErrorInvalidParameter)))
+                        return
                     }
                     
                     readBlock(page: nextPage, targetLength: totalNeeded)
@@ -775,7 +1005,7 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
         tlvData.append(0xFE) // Terminator
         // 3. WRITE RAW DATA
         // Start at Page 4 (Standard for NTAG213/215/216)
-        self.writeRawData(tag: miFareTag, session: session, data: tlvData, startPage: 0x04, completion: completion)
+        writeRawData(tag: miFareTag, session: session, data: tlvData, startPage: 0x04, completion: completion)
     }
     
     func writeRawData(tag: NFCMiFareTag, session: NFCTagReaderSession, data: Data, startPage: UInt8, completion: @escaping (Result<Void, Error>) -> Void) {
@@ -859,7 +1089,7 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
     
     func readAndParseNDEF(tag: NFCMiFareTag, session: NFCTagReaderSession, startPage: UInt8 = 0x04,
                           completion: @escaping (Result<NFCNDEFMessage, Error>) -> Void) {
-
+        
         
         // Internal function to read 16 bytes (4 pages) starting at a specific page
         func readBlock(page: UInt8, targetLength: Int?, currentData: Data) {
@@ -902,9 +1132,9 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                 
                 // If we still don't have enough data to even read the header, read next block
                 if !headerFound && newData.count < 6 {
-                     // Continue immediately on the same queue context
-                     readBlock(page: page + 4, targetLength: nil, currentData: newData)
-                     return
+                    // Continue immediately on the same queue context
+                    readBlock(page: page + 4, targetLength: nil, currentData: newData)
+                    return
                 }
                 
                 // Now we know the target length. Do we have enough data?
@@ -935,7 +1165,6 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
         // Start reading at Page 4
         readBlock(page: startPage, targetLength: nil, currentData: Data())
     }
-    
 }
 
 
