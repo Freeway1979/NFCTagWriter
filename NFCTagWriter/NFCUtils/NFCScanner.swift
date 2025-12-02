@@ -122,6 +122,9 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
     // Define a 4-byte password (e.g., "ABCD" converted to hex bytes)
     var passwordData: Data { Data(textPassword.prefix(4).utf8) }
     
+    // Protection mode: true = Write Protected Only (Read full access), false = Read & Write Protected
+    var writeOnlyProtection: Bool = true
+    
     func beginWriting(password: String, textToWrite: String) {
         textPassword = password
         self.textToWrite = textToWrite
@@ -139,11 +142,13 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
         session?.begin()
     }
     
-    func beginSettingPassword(password: String) {
+    func beginSettingPassword(password: String, writeOnlyProtection: Bool = true) {
         textPassword = password
+        self.writeOnlyProtection = writeOnlyProtection
         currentAction = .setPassword
         session = NFCTagReaderSession(pollingOption: .iso14443, delegate: self, queue: nil)
-        session?.alertMessage = "Hold your iPhone near the NFC tag to set password."
+        let protectionMode = writeOnlyProtection ? "Write Protected Only" : "Read & Write Protected"
+        session?.alertMessage = "Hold your iPhone near the NFC tag to set password (\(protectionMode))."
         session?.begin()
     }
     
@@ -341,7 +346,7 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
         
         print("Attempting to write using native writeNDEF API...")
         let text = self.textToWrite.isEmpty ? "https://firewalla.com" : self.textToWrite
-        self.writeStringData(miFareTag: miFareTag, session: session, string: text) { [weak self] result in
+        self.writeStringData(miFareTag: miFareTag, session: session, text: text) { [weak self] result in
             guard let self = self else { return }
             var writeMsg = "Write Successful."
             switch result {
@@ -377,9 +382,60 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
             switch result {
             case .success(let message):
                 // Success! You have the NFCNDEFMessage object back.
-                // Parse the first record's payload to extract text
+                // Parse the first record's payload to extract text or URI
                 if let firstRecord = message.records.first {
-                    let text = self.parseNDEFTextPayload(firstRecord.payload)
+                    var text: String
+                    
+                    // Check record type and parse accordingly
+                    switch firstRecord.typeNameFormat {
+                    case .nfcWellKnown:
+                        // Check if it's a URI record (type "U" = 0x55) or Text record (type "T" = 0x54)
+                        // Type can be checked as a single byte or as a string
+                        var isURI = firstRecord.type.count == 1 && firstRecord.type[0] == 0x55
+                        var isText = firstRecord.type.count == 1 && firstRecord.type[0] == 0x54
+                        
+                        if !isURI && !isText, let typeString = String(data: firstRecord.type, encoding: .utf8) {
+                            if typeString == "U" {
+                                isURI = true
+                            } else if typeString == "T" {
+                                isText = true
+                            }
+                        }
+                        
+                        if isURI {
+                            // URI record - payload is the URI directly (first byte is URI prefix code)
+                            print("📋 Detected URI record (type=U)")
+                            text = self.parseNDEFURIPayload(firstRecord.payload)
+                        } else if isText {
+                            // Text record - payload has status byte and language code
+                            print("📋 Detected Text record (type=T)")
+                            text = self.parseNDEFTextPayload(firstRecord.payload)
+                        } else {
+                            // Other well-known type - try parsing as URI first (common case for URLs)
+                            print("📋 Unknown well-known type, trying URI parsing first")
+                            let uriText = self.parseNDEFURIPayload(firstRecord.payload)
+                            if !uriText.isEmpty {
+                                text = uriText
+                            } else {
+                                // Fallback to text parsing
+                                text = self.parseNDEFTextPayload(firstRecord.payload)
+                                if text.isEmpty {
+                                    // Last resort: try to decode as UTF-8 string
+                                    text = String(data: firstRecord.payload, encoding: .utf8) ?? ""
+                                }
+                            }
+                        }
+                    default:
+                        // For other record types, try URI parsing first, then UTF-8
+                        print("📋 Non-well-known record type, trying URI parsing")
+                        let uriText = self.parseNDEFURIPayload(firstRecord.payload)
+                        if !uriText.isEmpty {
+                            text = uriText
+                        } else {
+                            text = String(data: firstRecord.payload, encoding: .utf8) ?? ""
+                        }
+                    }
+                    
                     if !text.isEmpty {
                         readMsg = "Read: \(text)"
                         self.textRead = text
@@ -387,7 +443,8 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                     } else {
                         readMsg = "Read NDEF successfully! Decode failed."
                         self.textRead = "N/A"
-                        print(readMsg)
+                        print("⚠️ Failed to parse record. Type: \(firstRecord.typeNameFormat.rawValue), Payload length: \(firstRecord.payload.count)")
+                        print("   Payload hex: \(firstRecord.payload.map { String(format: "%02X", $0) }.joined(separator: " "))")
                     }
                 } else {
                     readMsg = "Read NDEF successfully! No records found."
@@ -645,6 +702,76 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
         }
     }
     
+    // Parse NDEF URI payload
+    // NDEF URI record format: [URI Prefix Code (1 byte)] [URI Suffix (variable)]
+    // URI Prefix codes: 0x00 = no prefix, 0x01 = "http://www.", 0x02 = "https://www.", etc.
+    private func parseNDEFURIPayload(_ payload: Data) -> String {
+        guard payload.count > 0 else { return "" }
+        
+        // First byte is the URI prefix code
+        let prefixCode = payload[0]
+        
+        // URI prefix table (from NFC Forum URI Record Type Definition)
+        let uriPrefixes: [String] = [
+            "",                    // 0x00: No prefix
+            "http://www.",         // 0x01
+            "https://www.",        // 0x02
+            "http://",             // 0x03
+            "https://",            // 0x04
+            "tel:",                // 0x05
+            "mailto:",             // 0x06
+            "ftp://anonymous:anonymous@", // 0x07
+            "ftp://ftp.",          // 0x08
+            "ftps://",             // 0x09
+            "sftp://",             // 0x0A
+            "smb://",              // 0x0B
+            "nfs://",              // 0x0C
+            "ftp://",              // 0x0D
+            "dav://",              // 0x0E
+            "news:",               // 0x0F
+            "telnet://",           // 0x10
+            "imap:",               // 0x11
+            "rtsp://",             // 0x12
+            "urn:",                // 0x13
+            "pop:",                // 0x14
+            "sip:",                // 0x15
+            "sips:",               // 0x16
+            "tftp://",             // 0x17
+            "btspp://",            // 0x18
+            "btl2cap://",          // 0x19
+            "btgoep://",           // 0x1A
+            "tcpobex://",          // 0x1B
+            "irdaobex://",         // 0x1C
+            "file://",             // 0x1D
+            "urn:epc:id:",         // 0x1E
+            "urn:epc:tag:",        // 0x1F
+            "urn:epc:pat:",        // 0x20
+            "urn:epc:raw:",        // 0x21
+            "urn:epc:",            // 0x22
+            "urn:nfc:"             // 0x23
+        ]
+        
+        // Get prefix string
+        let prefix: String
+        if Int(prefixCode) < uriPrefixes.count {
+            prefix = uriPrefixes[Int(prefixCode)]
+        } else {
+            prefix = ""
+        }
+        
+        // Extract URI suffix (everything after the prefix code)
+        guard payload.count > 1 else {
+            return prefix
+        }
+        
+        let uriSuffixData = payload.subdata(in: 1..<payload.count)
+        guard let uriSuffix = String(data: uriSuffixData, encoding: .utf8) else {
+            return prefix
+        }
+        
+        return prefix + uriSuffix
+    }
+    
     // Set password on NTAG tag and enable password protection
     func setPassword(miFareTag: NFCMiFareTag, session: NFCTagReaderSession) {
         print("=== Setting Password on NFC Tag ===")
@@ -847,10 +974,20 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                         
                         print("   Current ACCESS page: PACK=0x\(String(format: "%02X%02X", currentPackHigh, currentPackLow)), ACCESS=0x\(String(format: "%02X", currentAccess)), RFUI=0x\(String(format: "%02X", currentRFUI))")
                         
-                        // Set ACCESS bit 7 (0x80) while preserving other bits
-                        let newAccess = currentAccess | 0x80
-                        
-                        print("\nStep 3b: Setting ACCESS to 0x\(String(format: "%02X", newAccess)) (enabling bit 7) on page 0x\(String(format: "%02X", passwordPages.accessPage))...")
+                        // Set ACCESS byte based on protection mode
+                        let newAccess: UInt8
+                        if self.writeOnlyProtection {
+                            // Write Protected Only: Clear bit 7 (0x80) to allow read access without password
+                            // AUTH0 is still set, so write operations will require password
+                            newAccess = currentAccess & 0x7F  // Clear bit 7, preserve other bits
+                            print("\nStep 3b: Setting ACCESS to 0x\(String(format: "%02X", newAccess)) (Write Protected Only - Read full access) on page 0x\(String(format: "%02X", passwordPages.accessPage))...")
+                            print("   ℹ️  Mode: Write Protected Only - Read operations allowed without password, Write requires password")
+                        } else {
+                            // Read & Write Protected: Set bit 7 (0x80) to require password for both read and write
+                            newAccess = currentAccess | 0x80  // Set bit 7, preserve other bits
+                            print("\nStep 3b: Setting ACCESS to 0x\(String(format: "%02X", newAccess)) (Read & Write Protected) on page 0x\(String(format: "%02X", passwordPages.accessPage))...")
+                            print("   ℹ️  Mode: Read & Write Protected - Both read and write operations require password")
+                        }
                         let accessPageData = Data([0xA2, passwordPages.accessPage, currentPackLow, currentPackHigh, newAccess, currentRFUI])
                         
                         // Use the original tag reference directly
@@ -886,7 +1023,8 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                             print("   Note: Remove the tag from the RF field and re-present it for protection to take effect")
                             
                             // Complete the operation
-                            let successMsg = "Password set successfully! Tag is now password-protected.\n\nIMPORTANT: Remove the tag from the RF field and re-present it for protection to take effect."
+                            let protectionMode = self.writeOnlyProtection ? "Write Protected Only (Read full access)" : "Read & Write Protected"
+                            let successMsg = "Password set successfully! Tag is now \(protectionMode).\n\nIMPORTANT: Remove the tag from the RF field and re-present it for protection to take effect."
                             session.alertMessage = "Password set successfully! Remove tag and re-present for protection."
                             self.currentTag = nil
                             session.invalidate()
@@ -956,24 +1094,48 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                 var headerFound = false
                 
                 // Scan accumulated data to find the TLV
-                if accumulatedData.count >= 2 {
-                    // If the first byte is 0x03 (NDEF)
-                    if accumulatedData.first == 0x03 {
+                // Look for TLV tag 0x03 (NDEF Message) - might not be at the start if there's padding
+                var tlvStartIndex = 0
+                while tlvStartIndex < accumulatedData.count {
+                    if accumulatedData.count > tlvStartIndex && accumulatedData[tlvStartIndex] == 0x03 {
+                        // Found NDEF TLV tag
+                        let lengthByteIndex = tlvStartIndex + 1
                         
-                        // Check Short Length (1 byte)
-                        if accumulatedData.count >= 2 && accumulatedData[1] != 0xFF {
-                            payloadLen = Int(accumulatedData[1])
-                            contentStartIndex = 2
+                        // Check if we have at least the length byte
+                        guard accumulatedData.count > lengthByteIndex else {
+                            // Need more data to read length
+                            break
+                        }
+                        
+                        let lengthByte = accumulatedData[lengthByteIndex]
+                        
+                        // Check Short Length (1 byte, value < 0xFF)
+                        if lengthByte != 0xFF {
+                            payloadLen = Int(lengthByte)
+                            contentStartIndex = tlvStartIndex + 2  // Skip tag (0x03) and length byte
                             headerFound = true
+                            print("📋 Found NDEF TLV at index \(tlvStartIndex), short length: \(payloadLen)")
+                            break
                         }
                         // Check Long Length (3 bytes: FF LL LL)
-                        else if accumulatedData.count >= 4 && accumulatedData[1] == 0xFF {
-                            let lenHigh = Int(accumulatedData[2])
-                            let lenLow = Int(accumulatedData[3])
+                        else if accumulatedData.count >= lengthByteIndex + 3 {
+                            let lenHigh = Int(accumulatedData[lengthByteIndex + 1])
+                            let lenLow = Int(accumulatedData[lengthByteIndex + 2])
                             payloadLen = (lenHigh << 8) + lenLow
-                            contentStartIndex = 4
+                            contentStartIndex = tlvStartIndex + 4  // Skip tag (0x03), 0xFF, and 2 length bytes
                             headerFound = true
+                            print("📋 Found NDEF TLV at index \(tlvStartIndex), long length: \(payloadLen)")
+                            break
+                        } else {
+                            // Need more data to read long length
+                            break
                         }
+                    } else if accumulatedData[tlvStartIndex] == 0xFE || accumulatedData[tlvStartIndex] == 0x00 {
+                        // Skip TLV terminator (0xFE) or padding (0x00)
+                        tlvStartIndex += 1
+                    } else {
+                        // Unknown byte, might be padding or data - skip it
+                        tlvStartIndex += 1
                     }
                 }
                 
@@ -984,9 +1146,15 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
                 if headerFound && accumulatedData.count >= totalNeeded {
                     // 1. WE HAVE THE FULL MESSAGE
                     let rawNdef = accumulatedData.subdata(in: contentStartIndex..<totalNeeded)
+                    print("📋 Extracting NDEF message: \(rawNdef.count) bytes from index \(contentStartIndex) to \(totalNeeded)")
+                    print("   NDEF hex: \(rawNdef.prefix(32).map { String(format: "%02X", $0) }.joined(separator: " "))\(rawNdef.count > 32 ? "..." : "")")
+                    
                     if let message = NFCNDEFMessage(data: rawNdef) {
+                        print("✅ Successfully parsed NDEF message with \(message.records.count) record(s)")
                         completion(.success(message))
                     } else {
+                        print("❌ Failed to parse NDEF message from data")
+                        print("   Full data hex: \(rawNdef.map { String(format: "%02X", $0) }.joined(separator: " "))")
                         completion(.failure(NFCReaderError(.readerErrorInvalidParameter)))
                     }
                     
@@ -1015,14 +1183,13 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
         readBlock(page: 0x03, targetLength: nil)
     }
     
-    func writeStringData(miFareTag: NFCMiFareTag, session: NFCTagReaderSession, string: String, completion: @escaping (Result<Void, Error>) -> Void) {
+    func writeStringData(miFareTag: NFCMiFareTag, session: NFCTagReaderSession, text: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        print("writeStringData text:\(text)")
         // --- Next Step: Perform a Write Operation ---
         // IMPORTANT: Keep the phone near the tag throughout the write operation
         // Call write immediately after authentication to minimize delay
-        
-        guard let payload = NFCNDEFPayload.wellKnownTypeTextPayload(string: string,
-                                                                    locale: Locale(identifier: "en")) else {
-            completion(.failure(NSError(domain: "NFCScanner", code: -6, userInfo: [NSLocalizedDescriptionKey: "Failed to create NDEF payload from string: \(string)"])))
+        guard let payload = NFCNDEFPayload.wellKnownTypeURIPayload(string: text) else {
+            completion(.failure(NSError(domain: "NFCScanner", code: -6, userInfo: [NSLocalizedDescriptionKey: "Failed to create NDEF payload from string: \(text)"])))
             return
         }
         let message = NFCNDEFMessage(records: [payload])

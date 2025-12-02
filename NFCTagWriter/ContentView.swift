@@ -16,8 +16,11 @@ struct ContentView: View {
     
     @State private var textPassword: String = "5678"
     @State private var textRead: String = ""
-    @State private var textToWrite: String = "resume rule xxx"
+    @State private var textToWrite: String = "https://firewalla.com/194d80ed824b/rule/362"
     @State private var tagInfo: NFCTagInfo? = nil
+    @State private var alertMessage: String = ""
+    @State private var showAlert: Bool = false
+    @State private var writeOnlyProtection: Bool = true  // Default: Write Protected Only (Read full access)
     
     var body: some View {
         ScrollView {
@@ -88,6 +91,18 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity)
                 .background(Color.green)
                 .cornerRadius(10)
+            }
+            .padding(.horizontal)
+            
+            // Protection Mode Toggle
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Password Protection Mode:")
+                    .font(.headline)
+                Picker("Protection Mode", selection: $writeOnlyProtection) {
+                    Text("Write Protected").tag(true)
+                    Text("Read & Write Protected").tag(false)
+                }
+                .pickerStyle(.segmented)
             }
             .padding(.horizontal)
             
@@ -176,6 +191,11 @@ struct ContentView: View {
             }
             .padding()
         }
+        .alert("Rule Status", isPresented: $showAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(alertMessage)
+        }
     }
     
     private func readNFC() {
@@ -192,10 +212,52 @@ struct ContentView: View {
                     nfcError = ""
                 }
                 textRead = text
+                
+                // Parse URL and handle rule activation/deactivation
+                if !text.isEmpty {
+                    handleRuleFromText(text)
+                }
             }
         }
         
         scanner.beginReading(password: textPassword)
+    }
+    
+    // Parse URL and extract rule number, toggle state, show alert
+    private func handleRuleFromText(_ text: String) {
+        // Pattern: https://firewalla.com/rule/666 or similar
+        let pattern = #"https?://firewalla\.com/rule/(\d+)"#
+        
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
+            return
+        }
+        
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = regex.firstMatch(in: text, options: [], range: range) else {
+            return
+        }
+        
+        // Extract rule number
+        guard match.numberOfRanges > 1,
+              let ruleNumberRange = Range(match.range(at: 1), in: text),
+              let ruleNumber = Int(text[ruleNumberRange]) else {
+            return
+        }
+        
+        // Get current state from UserDefaults
+        let key = "rule_\(ruleNumber)_activated"
+        let currentState = UserDefaults.standard.bool(forKey: key)
+        
+        // Toggle state
+        let newState = !currentState
+        UserDefaults.standard.set(newState, forKey: key)
+        
+        // Show alert with new state
+        let status = newState ? "activated" : "deactivated"
+        alertMessage = "The rule \(ruleNumber) is \(status)"
+        showAlert = true
+        
+        print("📋 Rule \(ruleNumber) toggled: \(currentState ? "activated" : "deactivated") -> \(newState ? "activated" : "deactivated")")
     }
     
     private func readTagInfo() {
@@ -255,7 +317,7 @@ struct ContentView: View {
                 }
             }
         }
-        scanner.beginSettingPassword(password: textPassword)
+        scanner.beginSettingPassword(password: textPassword, writeOnlyProtection: writeOnlyProtection)
     }
 }
 
