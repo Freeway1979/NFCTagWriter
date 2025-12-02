@@ -203,9 +203,99 @@ class NFCScanner: NSObject, NFCTagReaderSessionDelegate {
             // Set password operation (no authentication needed)
             setPassword(miFareTag: miFareTag, session: session)
             
-        case .read, .write:
-            // Read or write operations require authentication
+        case .read:
+            // For read operations, check if authentication is needed
+            // If write-only protection is enabled (ACCESS bit 7 = 0), skip authentication
+            checkAuthenticationNeededForRead(miFareTag: miFareTag, session: session)
+        case .write:
+            // Write operations always require authentication if password is set
             authenticateTag(miFareTag: miFareTag, session: session)
+        }
+    }
+    
+    // Check if authentication is needed for read operations
+    // If write-only protection is enabled (ACCESS bit 7 = 0), skip authentication
+    private func checkAuthenticationNeededForRead(miFareTag: NFCMiFareTag, session: NFCTagReaderSession) {
+        // First, read the Capability Container to determine tag type
+        let readCCCommand = Data([0x30, 0x03]) // Read from page 3 (CC)
+        
+        miFareTag.sendMiFareCommand(commandPacket: readCCCommand) { [weak self] (response: Data, error: Error?) in
+            guard let self = self else { return }
+            
+            if let error = error {
+                // If we can't read CC, try to authenticate anyway (fallback)
+                print("⚠️ Failed to read CC, attempting authentication: \(error.localizedDescription)")
+                self.authenticateTag(miFareTag: miFareTag, session: session)
+                return
+            }
+            
+            guard response.count >= 16 else {
+                // Not enough data, try authentication
+                print("⚠️ CC response too short, attempting authentication")
+                self.authenticateTag(miFareTag: miFareTag, session: session)
+                return
+            }
+            
+            // Extract CC page (first 4 bytes of response)
+            let ccPage = response.subdata(in: 0..<4)
+            
+            // Check if it's a valid CC (should start with 0xE1 for NDEF formatted tags)
+            guard ccPage.count >= 4, ccPage[0] == 0xE1 else {
+                // Not NDEF formatted or invalid CC, try authentication
+                print("⚠️ Invalid CC or not NDEF formatted, attempting authentication")
+                self.authenticateTag(miFareTag: miFareTag, session: session)
+                return
+            }
+            
+            // Extract NDEF memory size from CC
+            let mlen = Int(ccPage[2])
+            let ndefBytes = mlen * 8  // This is NDEF memory size
+            
+            // Get password protection pages based on NDEF memory size
+            guard let passwordPages = NTAG21XPasswordPages.pages(for: ndefBytes) else {
+                // Tag type not supported for password protection, try reading without auth
+                print("📋 Tag type not supported for password protection, reading without authentication")
+                self.performReadOperation(miFareTag: miFareTag, session: session)
+                return
+            }
+            
+            // Read the ACCESS page to check if authentication is needed
+            let readAccessCommand = Data([0x30, passwordPages.accessPage])
+            
+            miFareTag.sendMiFareCommand(commandPacket: readAccessCommand) { [weak self] (accessResponse: Data, accessError: Error?) in
+                guard let self = self else { return }
+                
+                if let error = accessError {
+                    // If we can't read ACCESS, try to authenticate (fallback)
+                    print("⚠️ Failed to read ACCESS page, attempting authentication: \(error.localizedDescription)")
+                    self.authenticateTag(miFareTag: miFareTag, session: session)
+                    return
+                }
+                
+                guard accessResponse.count >= 4 else {
+                    // Not enough data, try authentication
+                    print("⚠️ ACCESS response too short, attempting authentication")
+                    self.authenticateTag(miFareTag: miFareTag, session: session)
+                    return
+                }
+                
+                // ACCESS byte is at index 2 of the ACCESS page
+                let accessByte = accessResponse[2]
+                let isReadProtected = (accessByte & 0x80) != 0
+                
+                print("📋 ACCESS byte: 0x\(String(format: "%02X", accessByte))")
+                print("📋 Read protection enabled: \(isReadProtected)")
+                
+                if isReadProtected {
+                    // ACCESS bit 7 is set - read/write protection is enabled, need authentication
+                    print("🔒 Read protection is enabled, authenticating...")
+                    self.authenticateTag(miFareTag: miFareTag, session: session)
+                } else {
+                    // ACCESS bit 7 is not set - write-only protection, skip authentication
+                    print("✅ Write-only protection detected, reading without authentication")
+                    self.performReadOperation(miFareTag: miFareTag, session: session)
+                }
+            }
         }
     }
     
