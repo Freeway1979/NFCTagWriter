@@ -6,6 +6,21 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A1477E1B2EE6EFD100512935 /* Helper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1477E192EE6EFD100512935 /* Helper.swift */; };
+		A1477E1C2EE6EFD100512935 /* DNACommunicator+FileCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1477E132EE6EFD100512935 /* DNACommunicator+FileCommands.swift */; };
+		A1477E1D2EE6EFD100512935 /* AESEncryptionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1477E162EE6EFD100512935 /* AESEncryptionMode.swift */; };
+		A1477E1E2EE6EFD100512935 /* TagConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1477E0E2EE6EFD100512935 /* TagConfiguration.swift */; };
+		A1477E1F2EE6EFD100512935 /* DnaCommunicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1477E102EE6EFD100512935 /* DnaCommunicator.swift */; };
+		A1477E202EE6EFD100512935 /* DnaCommunicator+Authentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1477E112EE6EFD100512935 /* DnaCommunicator+Authentication.swift */; };
+		A1477E212EE6EFD100512935 /* DnaCommunicator+ChipInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1477E122EE6EFD100512935 /* DnaCommunicator+ChipInfo.swift */; };
+		A1477E222EE6EFD100512935 /* EncryptionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1477E172EE6EFD100512935 /* EncryptionMode.swift */; };
+		A1477E232EE6EFD100512935 /* FileSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1477E0D2EE6EFD100512935 /* FileSettings.swift */; };
+		A1477E242EE6EFD100512935 /* DnaCommunicator+KeyCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1477E142EE6EFD100512935 /* DnaCommunicator+KeyCommands.swift */; };
+		A1477E252EE6EFD100512935 /* FileConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1477E0C2EE6EFD100512935 /* FileConfiguration.swift */; };
+		A1477E2A2EE6F34000512935 /* CryptoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = A1477E292EE6F34000512935 /* CryptoSwift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A16AAE532ED705B900DE128C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,6 +39,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A1477E0C2EE6EFD100512935 /* FileConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileConfiguration.swift; sourceTree = "<group>"; };
+		A1477E0D2EE6EFD100512935 /* FileSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSettings.swift; sourceTree = "<group>"; };
+		A1477E0E2EE6EFD100512935 /* TagConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagConfiguration.swift; sourceTree = "<group>"; };
+		A1477E102EE6EFD100512935 /* DnaCommunicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DnaCommunicator.swift; sourceTree = "<group>"; };
+		A1477E112EE6EFD100512935 /* DnaCommunicator+Authentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DnaCommunicator+Authentication.swift"; sourceTree = "<group>"; };
+		A1477E122EE6EFD100512935 /* DnaCommunicator+ChipInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DnaCommunicator+ChipInfo.swift"; sourceTree = "<group>"; };
+		A1477E132EE6EFD100512935 /* DNACommunicator+FileCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DNACommunicator+FileCommands.swift"; sourceTree = "<group>"; };
+		A1477E142EE6EFD100512935 /* DnaCommunicator+KeyCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DnaCommunicator+KeyCommands.swift"; sourceTree = "<group>"; };
+		A1477E162EE6EFD100512935 /* AESEncryptionMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AESEncryptionMode.swift; sourceTree = "<group>"; };
+		A1477E172EE6EFD100512935 /* EncryptionMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionMode.swift; sourceTree = "<group>"; };
+		A1477E192EE6EFD100512935 /* Helper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Helper.swift; sourceTree = "<group>"; };
 		A16AAE452ED705B800DE128C /* NFCTagWriter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NFCTagWriter.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A16AAE522ED705B900DE128C /* NFCTagWriterTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NFCTagWriterTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A16AAE5C2ED705B900DE128C /* NFCTagWriterUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NFCTagWriterUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -65,6 +91,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1477E2A2EE6F34000512935 /* CryptoSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -85,9 +112,52 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		A1477E0F2EE6EFD100512935 /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				A1477E0C2EE6EFD100512935 /* FileConfiguration.swift */,
+				A1477E0D2EE6EFD100512935 /* FileSettings.swift */,
+				A1477E0E2EE6EFD100512935 /* TagConfiguration.swift */,
+			);
+			path = Configuration;
+			sourceTree = "<group>";
+		};
+		A1477E152EE6EFD100512935 /* DnaCommunicator */ = {
+			isa = PBXGroup;
+			children = (
+				A1477E102EE6EFD100512935 /* DnaCommunicator.swift */,
+				A1477E112EE6EFD100512935 /* DnaCommunicator+Authentication.swift */,
+				A1477E122EE6EFD100512935 /* DnaCommunicator+ChipInfo.swift */,
+				A1477E132EE6EFD100512935 /* DNACommunicator+FileCommands.swift */,
+				A1477E142EE6EFD100512935 /* DnaCommunicator+KeyCommands.swift */,
+			);
+			path = DnaCommunicator;
+			sourceTree = "<group>";
+		};
+		A1477E182EE6EFD100512935 /* EncryptionModes */ = {
+			isa = PBXGroup;
+			children = (
+				A1477E162EE6EFD100512935 /* AESEncryptionMode.swift */,
+				A1477E172EE6EFD100512935 /* EncryptionMode.swift */,
+			);
+			path = EncryptionModes;
+			sourceTree = "<group>";
+		};
+		A1477E1A2EE6EFD100512935 /* NfcDnaKit */ = {
+			isa = PBXGroup;
+			children = (
+				A1477E0F2EE6EFD100512935 /* Configuration */,
+				A1477E152EE6EFD100512935 /* DnaCommunicator */,
+				A1477E182EE6EFD100512935 /* EncryptionModes */,
+				A1477E192EE6EFD100512935 /* Helper.swift */,
+			);
+			path = NfcDnaKit;
+			sourceTree = "<group>";
+		};
 		A16AAE3C2ED705B800DE128C = {
 			isa = PBXGroup;
 			children = (
+				A1477E1A2EE6EFD100512935 /* NfcDnaKit */,
 				A16AAE552ED705B900DE128C /* NFCTagWriterTests */,
 				A16AAE5F2ED705B900DE128C /* NFCTagWriterUITests */,
 				A16AAE462ED705B800DE128C /* Products */,
@@ -125,6 +195,7 @@
 			);
 			name = NFCTagWriter;
 			packageProductDependencies = (
+				A1477E292EE6F34000512935 /* CryptoSwift */,
 			);
 			productName = NFCTagWriter;
 			productReference = A16AAE452ED705B800DE128C /* NFCTagWriter.app */;
@@ -208,6 +279,9 @@
 			);
 			mainGroup = A16AAE3C2ED705B800DE128C;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A1477E282EE6F2CF00512935 /* XCRemoteSwiftPackageReference "CryptoSwift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A16AAE462ED705B800DE128C /* Products */;
 			projectDirPath = "";
@@ -249,6 +323,17 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1477E1B2EE6EFD100512935 /* Helper.swift in Sources */,
+				A1477E1C2EE6EFD100512935 /* DNACommunicator+FileCommands.swift in Sources */,
+				A1477E1D2EE6EFD100512935 /* AESEncryptionMode.swift in Sources */,
+				A1477E1E2EE6EFD100512935 /* TagConfiguration.swift in Sources */,
+				A1477E1F2EE6EFD100512935 /* DnaCommunicator.swift in Sources */,
+				A1477E202EE6EFD100512935 /* DnaCommunicator+Authentication.swift in Sources */,
+				A1477E212EE6EFD100512935 /* DnaCommunicator+ChipInfo.swift in Sources */,
+				A1477E222EE6EFD100512935 /* EncryptionMode.swift in Sources */,
+				A1477E232EE6EFD100512935 /* FileSettings.swift in Sources */,
+				A1477E242EE6EFD100512935 /* DnaCommunicator+KeyCommands.swift in Sources */,
+				A1477E252EE6EFD100512935 /* FileConfiguration.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -409,12 +494,14 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = NFCTagWriter/NFCTagWriter.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 92A47M48SN;
+				DEVELOPMENT_TEAM = 2A2G9N54ZA;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = NFCTagWriter/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "";
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NFCReaderUsageDescription = "Use NFC to write NFC TAG";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -427,8 +514,9 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = firewalla.com.NFCTagWriter;
+				PRODUCT_BUNDLE_IDENTIFIER = andy.liu.NFCTagWriter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -441,12 +529,14 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = NFCTagWriter/NFCTagWriter.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 92A47M48SN;
+				DEVELOPMENT_TEAM = 2A2G9N54ZA;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = NFCTagWriter/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "";
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NFCReaderUsageDescription = "Use NFC to write NFC TAG";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -459,8 +549,9 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = firewalla.com.NFCTagWriter;
+				PRODUCT_BUNDLE_IDENTIFIER = andy.liu.NFCTagWriter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -579,6 +670,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A1477E282EE6F2CF00512935 /* XCRemoteSwiftPackageReference "CryptoSwift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/krzyzanowskim/CryptoSwift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.9.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1477E292EE6F34000512935 /* CryptoSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1477E282EE6F2CF00512935 /* XCRemoteSwiftPackageReference "CryptoSwift" */;
+			productName = CryptoSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A16AAE3D2ED705B800DE128C /* Project object */;
 }

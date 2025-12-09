@@ -16,7 +16,7 @@ struct ContentView: View {
     
     @State private var textPassword: String = "5678"
     @State private var textRead: String = ""
-    @State private var textToWrite: String = "https://firewalla.com/915565a3-65c7-4a2b-8629-194d80ed824b/rule/362"
+    @State private var textToWrite: String = "https://mesh.firewalla.net/nfc?gid=915565a3-65c7-4a2b-8629-194d80ed824b&rule=249&chksum=34fd"
     @State private var tagInfo: NFCTagInfo? = nil
     @State private var alertMessage: String = ""
     @State private var showAlert: Bool = false
@@ -24,16 +24,42 @@ struct ContentView: View {
     @FocusState private var isTextFieldFocused: Bool
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                Image(systemName: "sensor.tag.radiowaves.forward")
-                    .imageScale(.large)
-                    .foregroundStyle(.tint)
-                    .font(.system(size: 50))
-                
-                Text("NFC Tag Reader/Writer")
-                    .font(.title2)
-                    .fontWeight(.bold)
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 20) {
+                    Image(systemName: "sensor.tag.radiowaves.forward")
+                        .imageScale(.large)
+                        .foregroundStyle(.tint)
+                        .font(.system(size: 50))
+                    
+                    Text("NFC Tag Reader/Writer")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text("NTAG213/215/216 Support")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    // Navigation to NTAG 424 View
+                    NavigationLink(destination: NTAG424View()) {
+                        HStack {
+                            Image(systemName: "lock.shield.fill")
+                            Text("NTAG 424 DNA")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.indigo)
+                        .cornerRadius(10)
+                    }
+                    .padding(.horizontal)
+                    
+                    Divider()
             
             // Display read result above Read Button
             VStack(alignment: .leading, spacing: 8) {
@@ -190,15 +216,18 @@ struct ContentView: View {
                 }
                 .padding()
             }
+                }
+                .padding()
             }
-            .padding()
+            .navigationTitle("NFC Tags")
+            .navigationBarTitleDisplayMode(.inline)
+            .alert("Rule Status", isPresented: $showAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(alertMessage)
+            }
+            .scrollDismissesKeyboard(.interactively)
         }
-        .alert("Rule Status", isPresented: $showAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(alertMessage)
-        }
-        .scrollDismissesKeyboard(.interactively)
     }
     
     private func readNFC() {
