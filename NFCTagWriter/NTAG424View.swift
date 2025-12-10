@@ -17,7 +17,7 @@ struct NTAG424View: View {
     @State private var tagUID: String = ""  // Store the last detected tag UID
     
     @State private var password: String = "915565AB915565AB"  // 16 characters for 16-byte key
-    @State private var textToWrite: String = "https://mesh.firewalla.net/nfc?gid=915565a3-65c7-4a2b-8629-194d80ed824b&rule=249&chksum=34fd"
+    @State private var textToWrite: String = "https://mesh.firewalla.com/nfc?gid=915565a3-65c7-4a2b-8629-194d80ed824b&rule=249"
     @State private var textRead: String = ""
     @FocusState private var isPasswordFocused: Bool
     @FocusState private var isTextFieldFocused: Bool
@@ -93,6 +93,23 @@ struct NTAG424View: View {
                         .padding()
                         .frame(maxWidth: .infinity)
                         .background(Color.orange)
+                        .cornerRadius(10)
+                    }
+                    .padding(.horizontal)
+                    
+                    // Configure File Access Button
+                    Button(action: {
+                        configureFileAccess()
+                    }) {
+                        HStack {
+                            Image(systemName: "shield.checkered")
+                            Text("Configure File Access")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.purple)
                         .cornerRadius(10)
                     }
                     .padding(.horizontal)
@@ -245,6 +262,13 @@ struct NTAG424View: View {
         nfcError = ""
         textRead = ""
         
+        let dataToEncrypt = "Hello.World"
+        print("ClipHelper.encrypt(data: dataToEncrypt) \(ClipHelper.encrypt(data: dataToEncrypt))")
+        print("ClipHelper.encrypt(data: dataToEncrypt) \(ClipHelper.encrypt(data: dataToEncrypt))")
+       
+        let encrypted = ClipHelper.encrypt(data: dataToEncrypt)
+        let decrypted = ClipHelper.decrypt(data: encrypted)
+        print("original \(dataToEncrypt), encrypted:\(encrypted) decrypted:\(decrypted)")
         setupScannerCallbacks()
         
         scanner.onReadDataCompleted = { text, error in
@@ -255,6 +279,29 @@ struct NTAG424View: View {
                     textRead = ""
                 } else if let text = text {
                     textRead = text
+                    // 3. Parse the components
+                    guard let url = URL(string: textRead) else {
+                        nfcError = "Failed to get gid and rid"
+                        return
+                    }
+                    guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true) else { return }
+                    // 4. Extract Query Parameters
+                    if let gidItem = components.queryItems?.first(where: { $0.name == "gid" }),
+                       let gid = gidItem.value,
+                       let ruleItem = components.queryItems?.first(where: { $0.name == "rule" }),
+                       let rid = ruleItem.value,
+                       let checkSumItem = components.queryItems?.first(where: { $0.name == "chksum" }),
+                           let chksum = checkSumItem.value {
+                        let validated = ClipHelper.verifyCheckSum(checksum: chksum, gid: gid, rid: rid)
+                        if validated {
+                            nfcMessage = "Data read success and chksum validated"
+                        } else {
+                            nfcMessage = "Data read success and chksum NOT validated"
+                        }
+                        print(nfcMessage)
+                        nfcError = ""
+                        return
+                    }
                     nfcMessage = "Data read successfully!"
                     nfcError = ""
                 } else {
@@ -278,7 +325,45 @@ struct NTAG424View: View {
             nfcError = "Please enter text to write"
             return
         }
+        // get gid and rid from the textToWrite
+        // use queryParams to get gid and rid
         
+        // 3. Parse the components
+        guard let url = URL(string: textToWrite) else {
+            nfcError = "Invalid URL"
+            return
+        }
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
+            nfcError = "Invalid URL"
+            return
+        }
+        // 4. Extract Query Parameters
+        if let gidItem = components.queryItems?.first(where: { $0.name == "gid" }),
+           let gid = gidItem.value,
+           let ruleItem = components.queryItems?.first(where: { $0.name == "rule" }),
+           let rid = ruleItem.value {
+            let checksum = ClipHelper.genCheckSum(gid: gid, rid: rid)
+            if checksum.isEmpty {
+                nfcError = "Failed to generate checksum"
+                return
+            }
+            
+            // Remove any existing chksum parameter
+            components.queryItems = components.queryItems?.filter { $0.name != "chksum" }
+            
+            // Add the new chksum parameter
+            let chksumItem = URLQueryItem(name: "chksum", value: checksum)
+            if components.queryItems == nil {
+                components.queryItems = []
+            }
+            components.queryItems?.append(chksumItem)
+            
+            // Reconstruct the URL string
+            if let updatedURL = components.url {
+                textToWrite = updatedURL.absoluteString
+            }
+        }
+        print("textToWrite with checksum:\(textToWrite)")
         scanner.onWriteDataCompleted = { success, error in
             DispatchQueue.main.async {
                 if let error = error {
@@ -295,6 +380,35 @@ struct NTAG424View: View {
         }
         
         scanner.beginWritingData(data: textToWrite, password: password)
+    }
+    
+    private func configureFileAccess() {
+        nfcMessage = ""
+        nfcError = ""
+        
+        setupScannerCallbacks()
+        
+        guard !password.isEmpty else {
+            nfcError = "Password is required to configure file access"
+            return
+        }
+        
+        scanner.onConfigureFileAccessCompleted = { message, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    nfcError = "Configure File Access Error: \(error.localizedDescription)"
+                    nfcMessage = ""
+                } else if let message = message {
+                    nfcMessage = message
+                    nfcError = ""
+                } else {
+                    nfcMessage = "File access configured successfully!"
+                    nfcError = ""
+                }
+            }
+        }
+        
+        scanner.beginConfiguringFileAccess(password: password)
     }
 }
 

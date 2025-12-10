@@ -13,6 +13,7 @@ enum NTAG424DNAActionType {
     case setPassword
     case writeData
     case readData
+    case configureFileAccess
 }
 
 // NTAG 424 DNA Scanner using NfcDnaKit third-party library
@@ -35,6 +36,7 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
     var onReadDataCompleted: ((String?, Error?) -> Void)?
     var onWriteDataCompleted: ((Bool, Error?) -> Void)?
     var onUIDDetected: ((String) -> Void)?  // Callback for when UID is detected
+    var onConfigureFileAccessCompleted: ((String?, Error?) -> Void)?  // Callback for file access configuration
     
     // Password/Key data (16 bytes for AES-128)
     var password: String = ""
@@ -77,6 +79,8 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
             self.onReadDataCompleted?(nil, error)
         case .writeData:
             self.onWriteDataCompleted?(false, error)
+        case .configureFileAccess:
+            self.onConfigureFileAccessCompleted?(nil, error)
         }
     }
     
@@ -111,6 +115,17 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
         // Use ISO14443 polling which supports ISO 7816 tags
         session = NFCTagReaderSession(pollingOption: [.iso14443], delegate: self, queue: nil)
         session?.alertMessage = "Hold your iPhone near the NTAG 424 tag to write data."
+        session?.begin()
+    }
+    
+    // Begin configuring NDEF file access permissions
+    func beginConfiguringFileAccess(password: String) {
+        self.password = password
+        currentAction = .configureFileAccess
+        
+        // Use ISO14443 polling which supports ISO 7816 tags
+        session = NFCTagReaderSession(pollingOption: [.iso14443], delegate: self, queue: nil)
+        session?.alertMessage = "Hold your iPhone near the NTAG 424 tag to configure file access."
         session?.begin()
     }
     
@@ -212,6 +227,8 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
                     case .writeData:
                         // For authenticate action, we'll write NDEF data
                         self.writeData(communicator: comm, session: session)
+                    case .configureFileAccess:
+                        self.configureFileAccess(communicator: comm, session: session)
                     }
                 }
             }
@@ -353,8 +370,11 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
     // Perform the actual read operation
     private func performReadData(communicator: DnaCommunicator, session: NFCTagReaderSession) {
         print("\nStep 2: Reading NDEF file...")
-        
+//        Raw Storage: 256 Bytes.
+//        Max Static NDEF Payload: 253 Bytes.
+//        With SDM/SUN Enabled: ~190–200 Bytes (depending on configuration).
         // Read NDEF file (file number 2, max 256 bytes)
+        //256 (Total) - 1 (Tag) - 1 (Len) - 1 (Terminator) = 253 bytes.
         communicator.readFileData(fileNum: DnaCommunicator.NDEF_FILE_NUMBER, length: 256, offset: 0) { [weak self] data, error in
             guard let self = self else { return }
             
@@ -421,6 +441,186 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
         } else {
             // No password, write directly
             performWriteData(communicator: communicator, session: session)
+        }
+    }
+    
+    // Configure NDEF file access permissions
+    private func configureFileAccess(communicator: DnaCommunicator, session: NFCTagReaderSession) {
+        print("=== Configuring NDEF File Access Permissions ===")
+        
+        // Step 1: Authenticate if password is provided
+        if !password.isEmpty {
+            print("\nStep 1: Authenticating with password...")
+            let keyBytes = dataToBytes(passwordData)
+            communicator.authenticateEV2First(keyNum: 0, keyData: keyBytes) { [weak self] success, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    let errorMsg = "Authentication failed: \(error.localizedDescription)"
+                    print("❌ \(errorMsg)")
+                    session.invalidate(errorMessage: errorMsg)
+                    self.onConfigureFileAccessCompleted?(nil, error)
+                    return
+                }
+                
+                if !success {
+                    let errorMsg = "Authentication failed"
+                    print("❌ \(errorMsg)")
+                    session.invalidate(errorMessage: errorMsg)
+                    self.onConfigureFileAccessCompleted?(nil, NSError(domain: "NTAG424DNAScanner", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg]))
+                    return
+                }
+                
+                print("✅ Authenticated successfully")
+                self.performConfigureFileAccess(communicator: communicator, session: session)
+            }
+        } else {
+            // No password, try to configure directly (may fail if authentication is required)
+            performConfigureFileAccess(communicator: communicator, session: session)
+        }
+    }
+    
+    // Perform the actual file access configuration
+    private func performConfigureFileAccess(communicator: DnaCommunicator, session: NFCTagReaderSession) {
+        print("\nStep 2: Reading current file settings...")
+        
+        // First, read current file settings to get the exact file size
+        communicator.getFileSettings(fileNum: DnaCommunicator.NDEF_FILE_NUMBER) { [weak self] settings, error in
+            guard let self = self else { return }
+            
+            if let error = error {
+                let errorMsg = "Failed to read current file settings: \(error.localizedDescription)"
+                print("❌ \(errorMsg)")
+                session.invalidate(errorMessage: errorMsg)
+                self.onConfigureFileAccessCompleted?(nil, error)
+                return
+            }
+            
+            guard let currentSettings = settings else {
+                let errorMsg = "Failed to get file settings"
+                print("❌ \(errorMsg)")
+                session.invalidate(errorMessage: errorMsg)
+                self.onConfigureFileAccessCompleted?(nil, NSError(domain: "NTAG424DNAScanner", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg]))
+                return
+            }
+            
+            print("   Current file size: \(currentSettings.fileSize ?? 256) bytes")
+            print("   Current SDM enabled: \(currentSettings.sdmEnabled)")
+            if currentSettings.sdmEnabled {
+                print("   Current SDM Options: UID=\(currentSettings.sdmOptionUid), ReadCounter=\(currentSettings.sdmOptionReadCounter)")
+                print("   Current SDM Meta Read: \(currentSettings.sdmMetaReadPermission.rawValue), File Read: \(currentSettings.sdmFileReadPermission.rawValue)")
+            }
+            print("\nStep 3: Configuring NDEF file access permissions with SDM...")
+            print("   File Number: 0x02 (NDEF File)")
+            print("   Read Access: 0xE (Free/Plain - Critical for iOS Background)")
+            print("   Write Access: 0x0 (Key Protected - Protects against overwriting)")
+            print("   R/W Access: 0x3 (Key Protected - Internal management)")
+            print("   Change Access: 0xE (Free - user changed this)")
+            print("   SDM: Enabled with UID mirroring and Read Counter")
+            
+            // ChangeFileSettings command: 0x5F
+            // According to NTAG 424 DNA datasheet structure (matching GetFileSettings response):
+            // [FileNo] [FileOption] [AccessRights(2)] [FileSize(3)] [SDM params if SDM enabled]
+            // When SDM is enabled and Meta Read Permission = ALL:
+            //   [SDMOptions] [SDMAccessRights(2)] [UIDOffset(3)] [ReadCounterOffset(3)] [MACInputOffset(3)] [MACOffset(3)]
+            
+            let fileNo: UInt8 = DnaCommunicator.NDEF_FILE_NUMBER  // 0x02
+            
+            // FileOption byte: bit 6 = SDM enabled (0x40), bits 1-0 = communication mode (0x00 = Plain)
+            let fileOption: UInt8 = 0x40  // SDM enabled (bit 6), Plain mode (bits 1-0 = 0x00)
+            
+            let accessRightsByte1: UInt8 = (0xE << 4) | 0x0  // Read: 0xE (Free), Write: 0x0 (Key 0)
+            let accessRightsByte2: UInt8 = (0x3 << 4) | 0xE  // R/W: 0x3 (Key 3), Change: 0xE (Free - user changed this)
+            
+            // File size: Use current file size (3 bytes, little endian) - REQUIRED in ChangeFileSettings
+            let fileSize = currentSettings.fileSize ?? 256
+            let fileSizeBytes: [UInt8] = [
+                UInt8(fileSize & 0xFF),
+                UInt8((fileSize >> 8) & 0xFF),
+                UInt8((fileSize >> 16) & 0xFF)
+            ]
+            
+            // SDM Options: bit 7 = UID mirroring, bit 6 = Read Counter
+            let sdmOptions: UInt8 = 0xC0  // 0b11000000 = UID (bit 7) + Read Counter (bit 6)
+            
+            // SDM Access Rights
+            // SDMAccessRights1: Meta Read (high nibble) | File Read (low nibble)
+            let sdmAccessRights1: UInt8 = (0xE << 4) | 0xE  // Meta Read: 0xE (ALL), File Read: 0xE (ALL)
+            // SDMAccessRights2: bits 7-4 = reserved (0x0), bits 3-0 = Read Counter Retrieval Permission
+            let sdmAccessRights2: UInt8 = 0x0E  // Read Counter Retrieval: 0xE (ALL) in low nibble
+            
+            // SDM Offsets (3 bytes each, little endian)
+            // When Meta Read Permission == ALL and UID option enabled:
+            let uidOffsetBytes: [UInt8] = [0x00, 0x00, 0x00]  // UID Offset: 0x00
+            // When Meta Read Permission == ALL and Read Counter option enabled:
+            let readCounterOffsetBytes: [UInt8] = [0x07, 0x00, 0x00]  // Read Counter Offset: 0x07
+            // When File Read Permission != NONE (0xE != 0xF):
+            let macInputOffsetBytes: [UInt8] = [0x49, 0x00, 0x00]  // MAC Input Offset: 0x49
+            let macOffsetBytes: [UInt8] = [0x7C, 0x00, 0x00]  // MAC Offset: 0x7C
+            
+            // Build command data - MUST match GetFileSettings structure exactly
+            var commandData: [UInt8] = []
+            commandData.append(fileNo)           // 1 byte
+            commandData.append(fileOption)        // 1 byte
+            commandData.append(accessRightsByte1) // 1 byte
+            commandData.append(accessRightsByte2) // 1 byte
+            commandData.append(contentsOf: fileSizeBytes) // 3 bytes - REQUIRED
+            // SDM parameters (only if SDM enabled)
+            commandData.append(sdmOptions)        // 1 byte
+            commandData.append(sdmAccessRights1)  // 1 byte
+            commandData.append(sdmAccessRights2)  // 1 byte
+            // Offsets (when Meta Read Permission == ALL)
+            commandData.append(contentsOf: uidOffsetBytes)      // 3 bytes (UID option enabled)
+            commandData.append(contentsOf: readCounterOffsetBytes) // 3 bytes (Read Counter option enabled)
+            // Offsets (when File Read Permission != NONE)
+            commandData.append(contentsOf: macInputOffsetBytes)  // 3 bytes
+            commandData.append(contentsOf: macOffsetBytes)       // 3 bytes
+            
+            print("   Command data length: \(commandData.count) bytes")
+            print("   Command data: \(commandData.map { String(format: "%02X", $0) }.joined(separator: " "))")
+            
+            // Use nxpMacCommand since we need to be authenticated
+            communicator.nxpMacCommand(command: 0x5F, header: [], data: commandData) { [weak self] result, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    let errorMsg = "Failed to configure file access: \(error.localizedDescription)"
+                    print("❌ \(errorMsg)")
+                    session.invalidate(errorMessage: errorMsg)
+                    self.onConfigureFileAccessCompleted?(nil, error)
+                    return
+                }
+                
+                // Check status word
+                if result.statusMajor == 0x90 && result.statusMinor == 0x00 {
+                    let successMsg = "NDEF file access permissions and SDM configured successfully!\n\n" +
+                        "Access Permissions:\n" +
+                        "• Read Access: Free/Plain (0xE) - Critical for iOS Background\n" +
+                        "• Write Access: Key Protected (0x0) - Protects against overwriting\n" +
+                        "• R/W Access: Key Protected (0x3) - Internal management\n" +
+                        "• Change Access: Free (0xE) - User modified\n\n" +
+                        "SDM Configuration:\n" +
+                        "• SDM: Enabled\n" +
+                        "• UID Mirroring: Enabled (Offset: 0x00)\n" +
+                        "• Read Counter: Enabled (Offset: 0x07)\n" +
+                        "• SDM Meta Read: Free (0xE)\n" +
+                        "• SDM File Read: Free (0xE)\n" +
+                        "• SDM Read Counter Retrieval: Free (0xE)\n" +
+                        "• MAC Input Offset: 0x49\n" +
+                        "• MAC Offset: 0x7C"
+                    print("✅ \(successMsg)")
+                    session.alertMessage = "File access and SDM configured successfully!"
+                    session.invalidate()
+                    self.currentTag = nil
+                    self.communicator = nil
+                    self.onConfigureFileAccessCompleted?(successMsg, nil)
+                } else {
+                    let errorMsg = "Configuration failed with status: 0x\(String(format: "%02X", result.statusMajor))\(String(format: "%02X", result.statusMinor))"
+                    print("❌ \(errorMsg)")
+                    session.invalidate(errorMessage: errorMsg)
+                    self.onConfigureFileAccessCompleted?(nil, NSError(domain: "NTAG424DNAScanner", code: Int(result.statusMajor) << 8 | Int(result.statusMinor), userInfo: [NSLocalizedDescriptionKey: errorMsg]))
+                }
+            }
         }
     }
     
