@@ -8,6 +8,16 @@
 import Foundation
 import CommonCrypto
 
+//// Deterministic encryption (default) - same input = same output
+//let encrypted1 = ClipHelper.encrypt(data: "Hello", key: "1234567890123456")
+//let encrypted2 = ClipHelper.encrypt(data: "Hello", key: "1234567890123456")
+//// encrypted1 == encrypted2 ✅
+//
+//// Non-deterministic encryption (AES-GCM) - different output each time
+//let encrypted3 = ClipHelper.encrypt(data: "Hello", key: "1234567890123456", withAESGCM: true)
+//let encrypted4 = ClipHelper.encrypt(data: "Hello", key: "1234567890123456", withAESGCM: true)
+//// encrypted3 != encrypted4 ✅ (different salt/nonce each time)
+
 struct ClipHelper {
     // FOR DEMO
     // WHEN PROD, THE KEY SHOULD BE SAVED IN keychain and one box one key.
@@ -19,21 +29,32 @@ struct ClipHelper {
     static func encrypt(data: String, key: String = ClipHelper.AES_KEY,
                         withAESGCM: Bool = false) -> String {
         let dataData = Data(data.utf8)
-        let keyData = Data(key.utf8)
         
-        // Ensure key is exactly 16 bytes (AES-128)
-        var paddedKey = keyData
-        if paddedKey.count < 16 {
-            paddedKey.append(contentsOf: Array(repeating: UInt8(0), count: 16 - paddedKey.count))
-        } else if paddedKey.count > 16 {
-            paddedKey = paddedKey.prefix(16)
+        if withAESGCM {
+            // Use AES-GCM encryption via CryptoKitHelper
+            guard let encryptedData = CryptoKitHelper.encryptData(dataData, withPassphrase: key) else {
+                return ""
+            }
+            // Return as hex string
+            return encryptedData.map { String(format: "%02X", $0) }.joined()
+        } else {
+            // Use AES-128-ECB encryption (deterministic)
+            let keyData = Data(key.utf8)
+            
+            // Ensure key is exactly 16 bytes (AES-128)
+            var paddedKey = keyData
+            if paddedKey.count < 16 {
+                paddedKey.append(contentsOf: Array(repeating: UInt8(0), count: 16 - paddedKey.count))
+            } else if paddedKey.count > 16 {
+                paddedKey = paddedKey.prefix(16)
+            }
+            
+            guard let encryptedData = dataData.aes128ECBEncrypt(key: paddedKey) else {
+                return ""
+            }
+            // Return as hex string
+            return encryptedData.map { String(format: "%02X", $0) }.joined()
         }
-        
-        guard let encryptedData = dataData.aes128ECBEncrypt(key: paddedKey) else {
-            return ""
-        }
-        // Return as hex string
-        return encryptedData.map { String(format: "%02X", $0) }.joined()
     }
 
     static func decrypt(data: String, key: String = ClipHelper.AES_KEY,
@@ -53,20 +74,30 @@ struct ClipHelper {
             index = nextIndex
         }
         
-        let keyData = Data(key.utf8)
-        // Ensure key is exactly 16 bytes (AES-128)
-        var paddedKey = keyData
-        if paddedKey.count < 16 {
-            paddedKey.append(contentsOf: Array(repeating: UInt8(0), count: 16 - paddedKey.count))
-        } else if paddedKey.count > 16 {
-            paddedKey = paddedKey.prefix(16)
+        if withAESGCM {
+            // Use AES-GCM decryption via CryptoKitHelper
+            guard let decryptedData = CryptoKitHelper.decryptData(dataData, withPassphrase: key),
+                  let text = String(data: decryptedData, encoding: .utf8) else {
+                return "" // Return empty string on failure (matching encrypt pattern)
+            }
+            return text
+        } else {
+            // Use AES-128-ECB decryption
+            let keyData = Data(key.utf8)
+            // Ensure key is exactly 16 bytes (AES-128)
+            var paddedKey = keyData
+            if paddedKey.count < 16 {
+                paddedKey.append(contentsOf: Array(repeating: UInt8(0), count: 16 - paddedKey.count))
+            } else if paddedKey.count > 16 {
+                paddedKey = paddedKey.prefix(16)
+            }
+            
+            guard let decryptedData = dataData.aes128ECBDecrypt(key: paddedKey),
+                  let text = String(data: decryptedData, encoding: .utf8) else {
+                return "" // Return empty string on failure (matching encrypt pattern)
+            }
+            return text
         }
-        
-        guard let decryptedData = dataData.aes128ECBDecrypt(key: paddedKey),
-              let text = String(data: decryptedData, encoding: .utf8) else {
-            return "" // Return empty string on failure (matching encrypt pattern)
-        }
-        return text
     }
 
     static func genCheckSum(gid: String, rid: String, key: String = ClipHelper.AES_KEY) -> String {
