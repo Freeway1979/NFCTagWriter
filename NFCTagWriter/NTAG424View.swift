@@ -17,7 +17,7 @@ struct NTAG424View: View {
     @State private var tagUID: String = ""  // Store the last detected tag UID
     
     @State private var password: String = "915565AB915565AB"  // 16 characters for 16-byte key
-    @State private var textToWrite: String = "https://mesh.firewalla.com/nfc?gid=915565a3-65c7-4a2b-8629-194d80ed824b&rule=249"
+    @State private var textToWrite: String = "https://firewalla.com/nfc?gid=915565a3-65c7-4a2b-8629-194d80ed824b&rule=249"
     @State private var textRead: String = ""
     @FocusState private var isPasswordFocused: Bool
     @FocusState private var isTextFieldFocused: Bool
@@ -93,6 +93,23 @@ struct NTAG424View: View {
                         .padding()
                         .frame(maxWidth: .infinity)
                         .background(Color.orange)
+                        .cornerRadius(10)
+                    }
+                    .padding(.horizontal)
+                    
+                    // Configure CC File Button (for iOS Background Detection)
+                    Button(action: {
+                        configureCCFile()
+                    }) {
+                        HStack {
+                            Image(systemName: "iphone.radiowaves.left.and.right")
+                            Text("Configure CC File (iOS Background)")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.blue)
                         .cornerRadius(10)
                     }
                     .padding(.horizontal)
@@ -262,13 +279,13 @@ struct NTAG424View: View {
         nfcError = ""
         textRead = ""
         
-        let dataToEncrypt = "Hello.World"
-        print("ClipHelper.encrypt(data: dataToEncrypt) \(ClipHelper.encrypt(data: dataToEncrypt))")
-        print("ClipHelper.encrypt(data: dataToEncrypt) \(ClipHelper.encrypt(data: dataToEncrypt))")
-       
-        let encrypted = ClipHelper.encrypt(data: dataToEncrypt)
-        let decrypted = ClipHelper.decrypt(data: encrypted)
-        print("original \(dataToEncrypt), encrypted:\(encrypted) decrypted:\(decrypted)")
+//        let dataToEncrypt = "Hello.World"
+//        print("ClipHelper.encrypt(data: dataToEncrypt) \(ClipHelper.encrypt(data: dataToEncrypt))")
+//        print("ClipHelper.encrypt(data: dataToEncrypt) \(ClipHelper.encrypt(data: dataToEncrypt))")
+//       
+//        let encrypted = ClipHelper.encrypt(data: dataToEncrypt)
+//        let decrypted = ClipHelper.decrypt(data: encrypted)
+//        print("original \(dataToEncrypt), encrypted:\(encrypted) decrypted:\(decrypted)")
         setupScannerCallbacks()
         
         scanner.onReadDataCompleted = { text, error in
@@ -390,6 +407,35 @@ struct NTAG424View: View {
         }
         
         scanner.beginWritingData(data: textToWrite, password: password)
+    }
+    
+    private func configureCCFile() {
+        nfcMessage = ""
+        nfcError = ""
+        
+        setupScannerCallbacks()
+        
+        guard !password.isEmpty else {
+            nfcError = "Password is required to configure CC file"
+            return
+        }
+        
+        scanner.onConfigureCCFileCompleted = { message, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    nfcError = "Configure CC File Error: \(error.localizedDescription)"
+                    nfcMessage = ""
+                } else if let message = message {
+                    nfcMessage = message
+                    nfcError = ""
+                } else {
+                    nfcMessage = "CC file configured successfully!"
+                    nfcError = ""
+                }
+            }
+        }
+        
+        scanner.beginConfiguringCCFile(password: password)
     }
     
     private func configureFileAccess() {

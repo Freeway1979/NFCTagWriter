@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by Jonathan Bartlett on 7/19/21.
 //
@@ -14,6 +14,9 @@ public extension DnaCommunicator {
         // Auto-detect mode if not specified
         if mode == nil {
             getFileSettings(fileNum: fileNum) { settings, err in
+                if let settings = settings {
+                    print("[\(fileNum)] file settings: mode:\(settings.communicationMode) read: \(settings.readPermission) read/write:\(settings.readWritePermission) write:\(settings.writePermission) change:\(settings.changePermission) sdmEnabled:\(settings.sdmEnabled)" )
+                }
                 if err != nil {
                     completion(err)
                 } else {
@@ -35,10 +38,12 @@ public extension DnaCommunicator {
     
     func readFileData(fileNum: UInt8, length: Int, mode: CommuncationMode? = nil, offset: Int = 0, completion: @escaping ([UInt8], Error?) -> Void) {
         // Pg. 73
-        
         // Auto-detect mode if not specified
         if mode == nil {
             getFileSettings(fileNum: fileNum) { settings, err in
+                if let settings = settings {
+                    print("[\(fileNum)] file settings: mode:\(settings.communicationMode) read: \(settings.readPermission) read/write:\(settings.readWritePermission) write:\(settings.writePermission) change:\(settings.changePermission) sdmEnabled:\(settings.sdmEnabled)" )
+                }
                 if err != nil {
                     completion([], err)
                 } else {
@@ -64,7 +69,38 @@ public extension DnaCommunicator {
         nxpMacCommand(command: 0xf5, header: [fileNum], data: []) { result, err in
             
             let settings = FileSettings(fromResultData:result)
+            
+            print("[\(fileNum)] file settings: mode:\(settings.communicationMode) read: \(settings.readPermission) read/write:\(settings.readWritePermission) write:\(settings.writePermission) change:\(settings.changePermission) sdmEnabled:\(settings.sdmEnabled)" )
+            
             completion(settings, self.makeErrorIfNotExpectedStatus(result, error: err))
+        }
+    }
+    
+    /// Changes the file settings for a specific file number.
+    /// - Parameters:
+    ///   - fileNo: The file ID (e.g., 0x01 for CC File)
+    ///   - fileOption: Communication mode (0x00 for Plain, 0x40 for SDM/Mirroring)
+    ///   - accessRights: 2 Bytes defining Read/Write/RW/Change permissions
+    ///   - completion: Result handler
+    func changeFileSettings(fileNo: UInt8, fileOption: UInt8, accessRights: Data, completion: @escaping (Result<Void, Error>) -> Void) {
+        
+        // Command Hex: 0x5F (ChangeFileSettings)
+        let cmd: UInt8 = 0x5F
+        
+        // Construct Payload: [FileNo] + [FileOption] + [AccessRights (2 bytes)]
+        var commandData: [UInt8] = []
+        commandData.append(fileOption)
+        for byte in accessRights.byteArray {
+            commandData.append(byte)
+        }
+        // We use 'nxpMacCommand' because you are in an Authenticated EV2 session.
+        // This automatically calculates the CMAC signature required by Key 0.
+        self.nxpEncryptedCommand(command: cmd, header: [fileNo], data: commandData) { responseData, error in
+            if let error = error {
+                completion(.failure(error))
+            } else {
+                completion(.success(()))
+            }
         }
     }
 }
