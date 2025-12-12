@@ -818,6 +818,9 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
      }
     
     // Perform the actual write operation
+    // According to NTAG 424 DNA datasheet, we must use ISO 7816 commands (WriteData) to write to NDEF file
+    // Standard Core NFC tag.writeNDEF() does NOT work for NTAG 424 DNA (Type 4 Tag)
+    // We must use DnaCommunicator.writeFileData() which uses ISO 7816 WriteData command
     private func performWriteData(communicator: DnaCommunicator, session: NFCTagReaderSession) {
         print("\nStep 2: Creating NDEF message...")
         
@@ -829,55 +832,143 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
             onWriteDataCompleted?(false, NSError(domain: "NTAG424DNAScanner", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg]))
             return
         }
-        
         let ndefBytes = dataToBytes(ndefData)
-        print("📤 NDEF message size: \(ndefBytes.count) bytes (TLV wrapped)")
+        print("📤 NDEF file data size: \(ndefBytes.count) bytes (NLEN format, NFC Forum Type 4 Tag compliant)")
+        print("   • NLEN structure: \(ndefBytes.prefix(min(32, ndefBytes.count)).map { String(format: "%02X", $0) }.joined(separator: " "))...")
+        print("   ✅ Format: [NLEN(2 bytes)] [NDEF Data] - Compliant with NFC Forum Type 4 Tag specification")
         
         // Write to NDEF file (file number 2)
-        // IMPORTANT: Use PLAIN mode to ensure third-party tools (NXP TagInfo, TagWriter, iOS) can read the data
-        // The NDEF file should be configured with Read Access = ALL (0xE) and Communication Mode = PLAIN
-        print("\nStep 3: Writing to NDEF file...")
+        // According to NTAG 424 DNA datasheet section 8.2.3.1 StandardData file:
+        // "The writing operations of single frames up to 128 bytes with a WriteData or ISOUpdateBinary 
+        //  command are also tearing protected."
+        // 
+        // IMPORTANT: nxpNativeCommand uses UInt8 for APDU packet length, which can only represent 0-255.
+        // The APDU structure is: [CLA INS P1 P2 Lc] [Header] [Data] [Le]
+        // Where Lc (length of command data) is a UInt8.
+        // 
+        // For writeFileData, the packet structure is:
+        // Header: [fileNum] + [offset(3)] + [dataSize(3)] = 7 bytes
+        // Data: [data bytes]
+        // MAC: [8 bytes if authenticated]
+        // Total: 7 + dataSize + MAC
+        //
+        // According to datasheet: Maximum single frame write = 128 bytes (tearing protected)
+        // Since we need to write 256 bytes, we must write in chunks of 128 bytes.
+        print("\nStep 3: Writing to NDEF file in chunks...")
         print("   • Using PLAIN mode (for third-party tool compatibility)")
         print("   • Writing at offset: 0x00")
-        print("   • Data format: TLV-wrapped NDEF message")
+        print("   • Data format: NLEN format (NFC Forum Type 4 Tag compliant)")
+        print("   • Structure: [NLEN(2 bytes)] [NDEF Data]")
+        print("   • Total bytes to write: \(ndefBytes.count) bytes")
+        print("   • Chunk size: 128 bytes (datasheet maximum for tearing protection)")
         
-        communicator.writeFileData(fileNum: DnaCommunicator.NDEF_FILE_NUMBER, data: ndefBytes, mode: .PLAIN, offset: 0) { [weak self] error in
-            guard let self = self else { return }
-            
-            if let error = error {
-                let errorMsg = "Failed to write NDEF file: \(error.localizedDescription)"
-                print("❌ \(errorMsg)")
-                print("   💡 If this fails, ensure NDEF file is configured with:")
-                print("      • Read Access = ALL (0xE)")
-                print("      • Write Access = Key 0 (requires authentication)")
-                print("      • Communication Mode = PLAIN")
-                session.invalidate(errorMessage: errorMsg)
-                self.onWriteDataCompleted?(false, error)
+        // Write in chunks according to datasheet specification
+        // Chunk size: 128 bytes (maximum single frame write with tearing protection per datasheet 8.2.3.1)
+        let chunkSize = 128
+        var currentOffset = 0
+        
+        func writeNextChunk() {
+            guard currentOffset < ndefBytes.count else {
+                // All data written, verify
+                print("✅ All data written successfully!")
+                print("   • NDEF message written in NLEN format (NFC Forum Type 4 Tag compliant)")
+                print("   • Structure: [NLEN(2 bytes)] [NDEF Data]")
+                print("   • Total bytes written: \(ndefBytes.count) bytes")
+                print("   • NXP TagInfo should now detect 'NDEF Data Storage Populated'")
+                print("   • Third-party tools should be able to read the NDEF message")
+                
+                // Verify the write by reading back a small portion
+                print("\nStep 4: Verifying write...")
+                communicator.readFileData(fileNum: DnaCommunicator.NDEF_FILE_NUMBER, length: min(32, ndefBytes.count), offset: 0) { [weak self] readData, readError in
+                    guard let self = self else { return }
+                    
+                    if let readError = readError {
+                        print("   ⚠️ Could not verify write: \(readError.localizedDescription)")
+                    } else {
+                        print("   📥 Read back \(readData.count) bytes from offset 0x00")
+                        print("   • First 16 bytes: \(readData.prefix(16).map { String(format: "%02X", $0) }.joined(separator: " "))")
+                        
+                        // Check if NLEN structure is correct (NFC Forum Type 4 Tag compliance)
+                        if readData.count >= 2 {
+                            let nlenHigh = readData[0]
+                            let nlenLow = readData[1]
+                            let ndefLength = (Int(nlenHigh) << 8) | Int(nlenLow)
+                            
+                            if ndefLength > 0 && ndefLength <= 0xFFFE {
+                                print("   ✅ NLEN structure verified (NFC Forum Type 4 Tag compliant)")
+                                print("   • NLEN: 0x\(String(format: "%02X", nlenHigh))\(String(format: "%02X", nlenLow)) = \(ndefLength) bytes")
+                                print("   • NDEF data starts at offset 0x02")
+                                
+                                // Check if NDEF data is present
+                                if readData.count >= 2 + ndefLength {
+                                    print("   • NDEF data present: \(ndefLength) bytes")
+                                } else if readData.count > 2 {
+                                    print("   • Partial NDEF data read: \(readData.count - 2) bytes (expected \(ndefLength) bytes)")
+                                }
+                            } else {
+                                print("   ⚠️ WARNING: NLEN value may be incorrect (0x\(String(format: "%04X", ndefLength)))")
+                                print("   ⚠️ Expected range: 0x0001 to 0xFFFE")
+                            }
+                        } else {
+                            print("   ⚠️ WARNING: Insufficient data to verify NLEN structure")
+                        }
+                    }
+                    
+                    session.alertMessage = "Data written successfully!"
+                    session.invalidate()
+                    self.currentTag = nil
+                    self.communicator = nil
+                    self.onWriteDataCompleted?(true, nil)
+                }
                 return
             }
             
-            print("✅ Data written successfully!")
-            print("   • NDEF message written in TLV format")
-            print("   • NXP TagInfo should now detect 'NDEF Data Storage Populated'")
-            print("   • Third-party tools should be able to read the NDEF message")
-            session.alertMessage = "Data written successfully!"
-            session.invalidate()
-            self.currentTag = nil
-            self.communicator = nil
-            self.onWriteDataCompleted?(true, nil)
+            let remainingBytes = ndefBytes.count - currentOffset
+            let currentChunkSize = min(chunkSize, remainingBytes)
+            let chunk = Array(ndefBytes[currentOffset..<(currentOffset + currentChunkSize)])
+            
+            print("   • Writing chunk: offset=0x\(String(format: "%02X", currentOffset)), size=\(currentChunkSize) bytes, remaining=\(remainingBytes - currentChunkSize) bytes")
+            
+            communicator.writeFileData(fileNum: DnaCommunicator.NDEF_FILE_NUMBER, data: chunk, mode: .PLAIN, offset: currentOffset) { [weak self] error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    let errorMsg = "Failed to write NDEF file at offset 0x\(String(format: "%02X", currentOffset)): \(error.localizedDescription)"
+                    print("❌ \(errorMsg)")
+                    print("   💡 If this fails, ensure NDEF file is configured with:")
+                    print("      • Read Access = ALL (0xE)")
+                    print("      • Write Access = Key 0 (requires authentication)")
+                    print("      • Communication Mode = PLAIN")
+                    session.invalidate(errorMessage: errorMsg)
+                    self.onWriteDataCompleted?(false, error)
+                    return
+                }
+                
+                // Advance offset and write next chunk
+                currentOffset += currentChunkSize
+                
+                // Add a small delay between chunks to avoid overwhelming the tag
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    writeNextChunk()
+                }
+            }
         }
+        
+        // Start writing chunks
+        writeNextChunk()
     }
     
     // MARK: - NDEF Helpers
     
     // Create NDEF message from text/URL string
-    // IMPORTANT: For Type 4 Tag (NTAG 424 DNA), NDEF data must be wrapped in TLV format:
-    // TLV Structure: [0x03] [Length] [NDEF Data] [0xFE]
+    // According to NFC Forum Type 4 Tag specification, NDEF file uses NLEN format:
+    // NLEN Structure: [NLEN(2 bytes, big-endian)] [NDEF Data]
     // Where:
-    //   - 0x03 = Tag for NDEF Message TLV
-    //   - Length = 1 byte if < 255, or 3 bytes (0xFF + 2-byte length) if >= 255
+    //   - NLEN = 2-byte length field (big-endian) indicating NDEF message length (0x0000 to 0xFFFE)
     //   - NDEF Data = The actual NDEF message bytes
-    //   - 0xFE = Terminator TLV
+    // 
+    // This matches the format used by NXP TagWriter and other standard tools.
+    // Example from working tag: [00 47] [D1 02 42 53 70 ...] where 0x0047 = 71 bytes
     private func createNDEFMessage(from text: String) -> Data? {
         // Create the NDEF message payload
         var ndefPayload: Data?
@@ -896,81 +987,65 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
             return nil
         }
         
-        // Wrap the NDEF payload in TLV format for Type 4 Tag (NTAG 424 DNA)
-        var tlvData = Data()
-        tlvData.append(0x03)  // T: NDEF Message TLV tag
+        // Wrap the NDEF payload in NLEN format for NFC Forum Type 4 Tag compliance
+        // NLEN format: [NLEN high byte] [NLEN low byte] [NDEF Data]
+        var nlenData = Data()
         
-        // L: Length field
-        // IMPORTANT: Single-byte length format supports 0x00 to 0xFE (0-254 bytes)
-        // 0xFF is reserved for long format (3-byte length: 0xFF + 2-byte length)
-        if payload.count <= 254 {
-            // Short format: 1 byte length (max value is 0xFE = 254 bytes)
-            tlvData.append(UInt8(payload.count))
-        } else {
-            // Long format: 0xFF followed by 2-byte length (big endian)
-            // Used for payloads >= 255 bytes
-            tlvData.append(0xFF)
-            tlvData.append(UInt8((payload.count >> 8) & 0xFF))
-            tlvData.append(UInt8(payload.count & 0xFF))
-        }
+        // NLEN: 2-byte length field (big-endian)
+        // Range: 0x0000 to 0xFFFE (0 to 65534 bytes)
+        // IMPORTANT: NLEN must be exactly 2 bytes, big-endian
+        let ndefLength = UInt16(payload.count)
+        nlenData.append(UInt8((ndefLength >> 8) & 0xFF))  // High byte
+        nlenData.append(UInt8(ndefLength & 0xFF))          // Low byte
         
-        // V: NDEF message data
-        tlvData.append(payload)
+        // Append the actual NDEF message data
+        nlenData.append(payload)
         
-        // Terminator TLV
-        tlvData.append(0xFE)
+        print("   📝 NDEF NLEN structure (NFC Forum Type 4 Tag compliant):")
+        print("   • NLEN format: [NLEN(2 bytes)] [NDEF Data]")
+        print("   • NDEF message length: \(payload.count) bytes (0x\(String(format: "%04X", ndefLength)))")
+        print("   • Total file data length: \(nlenData.count) bytes")
+        print("   • NLEN bytes: \(String(format: "%02X", (ndefLength >> 8) & 0xFF)) \(String(format: "%02X", ndefLength & 0xFF))")
+        print("   • First 16 bytes: \(nlenData.prefix(min(16, nlenData.count)).map { String(format: "%02X", $0) }.joined(separator: " "))...")
+        print("   ✅ Compliant with NFC Forum Type 4 Tag specification (NLEN format)")
         
-        print("   📝 NDEF TLV structure:")
-        print("   • TLV Tag: 0x03")
-        print("   • Payload length: \(payload.count) bytes")
-        print("   • Actual TLV data length: \(tlvData.count) bytes")
-        print("   • TLV format: \(tlvData.prefix(16).map { String(format: "%02X", $0) }.joined(separator: " "))...")
-        print("   💡 Note: NDEF data is wrapped in TLV format for Type 4 Tag compatibility")
-        
-        return tlvData
+        return nlenData
     }
     
     // Parse NDEF data and extract text/URL
-    // IMPORTANT: For Type 4 Tag (NTAG 424 DNA), NDEF data is wrapped in TLV format:
-    // TLV Structure: [0x03] [Length] [NDEF Data] [0xFE]
+    // IMPORTANT: For Type 4 Tag (NTAG 424 DNA), NDEF data uses NLEN format:
+    // NLEN Structure: [NLEN(2 bytes)] [NDEF Data]
+    // Where NLEN is a 2-byte big-endian length field (0x0000 to 0xFFFE)
     private func parseNDEFData(_ data: Data) -> String {
-        guard data.count > 0 else { return "" }
+        guard data.count >= 2 else { return "" }
         
-        // Check if data starts with TLV wrapper (0x03 = NDEF Message TLV tag)
+        // Extract NLEN (2-byte length field, big-endian)
+        let nlenHigh = data[0]
+        let nlenLow = data[1]
+        let ndefLength = (Int(nlenHigh) << 8) | Int(nlenLow)
+        
         var ndefPayload: Data?
         
-        if data.count >= 2 && data[0] == 0x03 {
-            // Data is wrapped in TLV format
-            let lengthByte = data[1]
+        if ndefLength > 0 && ndefLength <= 0xFFFE {
+            // Valid NLEN format
+            let payloadStart = 2  // Skip NLEN bytes
+            let payloadEnd = payloadStart + ndefLength
             
-            if lengthByte < 0xFF {
-                // Short format: 1 byte length
-                let payloadStart = 2
-                let payloadLength = Int(lengthByte)
-                
-                if data.count >= payloadStart + payloadLength {
-                    ndefPayload = Data(data[payloadStart..<(payloadStart + payloadLength)])
-                    print("   📥 Extracted NDEF payload from TLV: \(payloadLength) bytes (short format)")
-                } else {
-                    print("   ⚠️ TLV length mismatch: expected \(payloadLength) bytes, but data only has \(data.count - payloadStart) bytes")
-                }
+            if data.count >= payloadEnd {
+                ndefPayload = Data(data[payloadStart..<payloadEnd])
+                print("   📥 Extracted NDEF payload from NLEN format: \(ndefLength) bytes")
             } else {
-                // Long format: 0xFF + 2-byte length
-                if data.count >= 5 {
-                    let payloadLength = (Int(data[2]) << 8) | Int(data[3])
-                    let payloadStart = 4
-                    
-                    if data.count >= payloadStart + payloadLength {
-                        ndefPayload = Data(data[payloadStart..<(payloadStart + payloadLength)])
-                        print("   📥 Extracted NDEF payload from TLV: \(payloadLength) bytes (long format)")
-                    } else {
-                        print("   ⚠️ TLV length mismatch: expected \(payloadLength) bytes, but data only has \(data.count - payloadStart) bytes")
-                    }
+                // Partial data - read what we have
+                if data.count > payloadStart {
+                    ndefPayload = Data(data[payloadStart..<data.count])
+                    print("   ⚠️ Partial NDEF data: read \(data.count - payloadStart) bytes (expected \(ndefLength) bytes)")
+                } else {
+                    print("   ⚠️ NLEN indicates \(ndefLength) bytes, but no data available")
                 }
             }
         } else {
-            // No TLV wrapper, try to parse directly (legacy format)
-            print("   📥 No TLV wrapper detected, parsing as raw NDEF data")
+            // Invalid NLEN or legacy format - try to parse as raw NDEF data
+            print("   📥 Invalid NLEN (0x\(String(format: "%04X", ndefLength))), trying to parse as raw NDEF data")
             
             // Remove padding (0x00 bytes at the end)
             var trimmedData = data
