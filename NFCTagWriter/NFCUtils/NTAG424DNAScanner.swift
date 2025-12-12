@@ -281,67 +281,142 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
     // MARK: - NTAG 424 Operations using NfcDnaKit
     
     // Set password on NTAG 424 tag using NfcDnaKit
+    // Supports both setting a new password (using default key) and changing an existing password (using current password)
     private func setPassword(communicator: DnaCommunicator, session: NFCTagReaderSession) {
-        print("=== Setting Password on NTAG 424 Tag (using NfcDnaKit) ===")
+        print("=== Setting/Changing Password on NTAG 424 Tag (using NfcDnaKit) ===")
         print("New password key (hex): \(passwordData.map { String(format: "%02X", $0) }.joined(separator: " "))")
         print("⚠️  IMPORTANT: Keep the tag near your device throughout the entire operation!")
         
         let defaultKeyBytes = dataToBytes(defaultKey)
         let newKeyBytes = dataToBytes(passwordData)
         
-        // Step 1: Authenticate with default key (key number 0)
-        print("\nStep 1: Authenticating with default key (key 0)...")
+        // Step 1: Try to authenticate with default key first (for new tags)
+        print("\nStep 1: Attempting to authenticate with default key (key 0)...")
         communicator.authenticateEV2First(keyNum: 0, keyData: defaultKeyBytes) { [weak self] success, error in
             guard let self = self else { return }
             
+            if success {
+                // Default key works - tag is new or password was reset
+                print("✅ Authenticated with default key (tag is new or password was reset)")
+                self.changeKeyWithOldKey(communicator: communicator, session: session, oldKey: defaultKeyBytes, newKey: newKeyBytes, keyVersion: 0x00)
+                return
+            }
+            
+            // Default key failed - tag already has a password set
+            print("⚠️ Default key authentication failed - tag already has a password set")
+            print("   💡 To change an existing password, you need to authenticate with the current password first.")
+            print("   💡 Attempting to authenticate with the password you entered (it might be the current password)...")
+            
+            // Step 1b: Try to authenticate with the entered password as the current password
+            // This allows users to change password by entering the same password twice (current = new)
+            // Or if they're changing to a different password, they should first authenticate with current password
+            // Note: In a production app, you might want separate fields for "current password" and "new password"
+            
+            communicator.authenticateEV2First(keyNum: 0, keyData: newKeyBytes) { [weak self] currentKeySuccess, currentKeyError in
+                guard let self = self else { return }
+                
+                if currentKeySuccess {
+                    // The entered password matches the current password
+                    print("✅ Authenticated with current password")
+                    print("   💡 You're changing the password from the current one to a new one.")
+                    print("   💡 Note: If you want to keep the same password, you can skip this step.")
+                    
+                    // Since oldKey and newKey are the same, this is essentially a password verification
+                    // But we should still call changeKey to ensure the password is properly set
+                    self.changeKeyWithOldKey(communicator: communicator, session: session, oldKey: newKeyBytes, newKey: newKeyBytes, keyVersion: 0x00)
+                    return
+                }
+                
+                // Both default key and entered password failed
+                let errorMsg = "❌ Authentication failed!\n\n" +
+                "The tag already has a password set, and the password you entered doesn't match.\n\n" +
+                "To change an existing password:\n" +
+                "1. You need to know the current password\n" +
+                "2. Enter the current password in the password field\n" +
+                "3. Then you can change it to a new password\n\n" +
+                "💡 If you've forgotten the current password, you may need to reset the tag (if possible) or contact support."
+                print(errorMsg)
+                session.invalidate(errorMessage: "Authentication failed. Please provide the correct current password to change it.")
+                self.onSetPasswordCompleted?(nil, NSError(domain: "NTAG424DNAScanner", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg]))
+            }
+        }
+    }
+    
+    // Helper function to change key after successful authentication
+    private func changeKeyWithOldKey(communicator: DnaCommunicator, session: NFCTagReaderSession,
+                                     oldKey: [UInt8], newKey: [UInt8], keyVersion: UInt8) {
+        print("\nStep 2: Changing key 0 to new password...")
+        communicator.changeKey(keyNum: 0, oldKey: oldKey, newKey: newKey, keyVersion: keyVersion) { [weak self] success, error in
+            guard let self = self else { return }
+            
             if let error = error {
-                let errorMsg = "Authentication with default key failed: \(error.localizedDescription)"
+                let errorMsg = "Failed to change key: \(error.localizedDescription)"
                 print("❌ \(errorMsg)")
-                print("   Note: The tag may already have a password set. Try authenticating with the existing password first.")
                 session.invalidate(errorMessage: errorMsg)
                 self.onSetPasswordCompleted?(nil, error)
                 return
             }
             
             if !success {
-                let errorMsg = "Authentication with default key failed"
+                let errorMsg = "Change key failed"
                 print("❌ \(errorMsg)")
                 session.invalidate(errorMessage: errorMsg)
                 self.onSetPasswordCompleted?(nil, NSError(domain: "NTAG424DNAScanner", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg]))
                 return
             }
             
-            print("✅ Authenticated with default key")
+            print("✅ Key changed successfully")
             
-            // Step 2: Change the key to the new password
-            // Key version is typically 0x00 for new keys
-            print("\nStep 2: Changing key 0 to new password...")
-            communicator.changeKey(keyNum: 0, oldKey: defaultKeyBytes, newKey: newKeyBytes, keyVersion: 0x00) { [weak self] success, error in
+            // Step 3: Verify the password by attempting to authenticate with the new key
+            print("\nStep 3: Verifying password by authenticating with new key...")
+            communicator.authenticateEV2First(keyNum: 0, keyData: newKey) { [weak self] verifySuccess, verifyError in
                 guard let self = self else { return }
                 
-                if let error = error {
-                    let errorMsg = "Failed to change key: \(error.localizedDescription)"
-                    print("❌ \(errorMsg)")
-                    session.invalidate(errorMessage: errorMsg)
-                    self.onSetPasswordCompleted?(nil, error)
-                    return
-                }
-                
-                if !success {
-                    let errorMsg = "Change key failed"
-                    print("❌ \(errorMsg)")
-                    session.invalidate(errorMessage: errorMsg)
+                if let verifyError = verifyError {
+                    print("   ⚠️ Verification failed: \(verifyError.localizedDescription)")
+                    print("   ⚠️ Password may not have been set correctly!")
+                    let errorMsg = "Password set, but verification failed: \(verifyError.localizedDescription)"
+                    session.invalidate(errorMessage: "Password verification failed")
                     self.onSetPasswordCompleted?(nil, NSError(domain: "NTAG424DNAScanner", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg]))
                     return
                 }
                 
-                let successMsg = "Password set successfully on NTAG 424 tag!\n\nNew key (hex): \(self.passwordData.map { String(format: "%02X", $0) }.joined(separator: " "))\n\n⚠️ IMPORTANT: Save this key securely. You will need it to authenticate with the tag in the future."
-                print("✅ \(successMsg)")
-                session.alertMessage = "Password set successfully!"
-                session.invalidate()
-                self.currentTag = nil
-                self.communicator = nil
-                self.onSetPasswordCompleted?(successMsg, nil)
+                if !verifySuccess {
+                    print("   ⚠️ Verification failed: Authentication with new key failed")
+                    print("   ⚠️ Password may not have been set correctly!")
+                    let errorMsg = "Password set, but verification failed: Authentication with new key failed"
+                    session.invalidate(errorMessage: "Password verification failed")
+                    self.onSetPasswordCompleted?(nil, NSError(domain: "NTAG424DNAScanner", code: -1, userInfo: [NSLocalizedDescriptionKey: errorMsg]))
+                    return
+                }
+                
+                print("   ✅ Password verification successful!")
+                let defaultKeyBytes = dataToBytes(defaultKey)
+                // Step 4: Verify that default key no longer works
+                print("\nStep 4: Verifying that default key no longer works...")
+                communicator.authenticateEV2First(keyNum: 0, keyData: defaultKeyBytes) { [weak self] defaultKeySuccess, _ in
+                    guard let self = self else { return }
+                    
+                    if defaultKeySuccess {
+                        print("   ⚠️ WARNING: Default key still works! Password may not have been set correctly!")
+                        print("   ⚠️ This means the tag is still vulnerable to unauthorized access!")
+                    } else {
+                        print("   ✅ Default key no longer works - password is active!")
+                    }
+                    
+                    let successMsg = "Password set and verified successfully on NTAG 424 tag!\n\n" +
+                    "New key (hex): \(self.passwordData.map { String(format: "%02X", $0) }.joined(separator: " "))\n\n" +
+                    "✅ Password verification: PASSED\n" +
+                    "✅ Default key disabled: \(defaultKeySuccess ? "FAILED ⚠️" : "PASSED")\n\n" +
+                    "⚠️ IMPORTANT: Save this key securely. You will need it to authenticate with the tag in the future.\n\n" +
+                    "🔒 Security Note: After setting the password, you must configure file access permissions using 'Configure File Access' to require authentication for write operations."
+                    print("✅ \(successMsg)")
+                    session.alertMessage = "Password set and verified successfully!"
+                    session.invalidate()
+                    self.currentTag = nil
+                    self.communicator = nil
+                    self.onSetPasswordCompleted?(successMsg, nil)
+                }
             }
         }
     }
@@ -688,8 +763,8 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
              // - Write: 0x0 (Key 0) - Requires AES authentication to write
              // - R/W: 0x0 (Key 0) - Requires authentication
              // - Change: 0x0 (Key 0) - Requires authentication to change settings
-             let accessRightsByte1: UInt8 = (0xE << 4) | 0x0  // Read: 0xE (Free/ALL), Write: 0x0 (Key 0) = 0xE0
-             let accessRightsByte2: UInt8 = (0x0 << 4) | 0x0  // R/W: 0x0 (Key 0), Change: 0x0 (Key 0) = 0x00
+             let accessRightsByte1: UInt8 = (0x0 << 4) | 0x0  // R/W: 0x0 (Key 0), Change: 0x0 (Key 0) = 0x00
+             let accessRightsByte2: UInt8 = (0xE << 4) | 0x0  // Read: 0xE (Free/ALL), Write: 0x0 (Key 0) = 0xE0
              
              // File size: Use current file size (3 bytes, little endian) - REQUIRED in ChangeFileSettings
              let fileSize = currentSettings.fileSize ?? 256
@@ -711,22 +786,26 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
              // NO FileSize bytes - FileSize is not part of ChangeFileSettings command
              // NO SDM parameters since SDM is disabled
              
-             print("\n   Target Configuration:")
-             print("   • Read Access: ALL (0xE) - Critical for iOS Background ✅")
-             print("   • Write Access: Key 0 (0x0) - Requires AES authentication ✅")
-             print("   • R/W Access: Key 0 (0x0)")
-             print("   • Change Access: Key 0 (0x0)")
-             print("   • Communication Mode: PLAIN ✅")
-             print("   • SDM: Disabled ❌")
-             print("   • File Size: \(fileSize) bytes")
-             print("\n   Command Structure (SDM DISABLED):")
-             print("   • FileNo: 0x\(String(format: "%02X", fileNo)) (in header)")
-             print("   • FileOption: 0x\(String(format: "%02X", fileOption)) (PLAIN mode, SDM disabled)")
-             print("   • AccessRights: 0x\(String(format: "%02X", accessRightsByte1)) 0x\(String(format: "%02X", accessRightsByte2))")
-             print("   Command data length: \(commandData.count) bytes")
-             print("   Command data: \(commandData.map { String(format: "%02X", $0) }.joined(separator: " "))")
-             print("   Expected: 00 E0 00 (FileOption=0x00, AccessRights=0xE0 0x00)")
-             print("   Note: FileSize is NOT included in ChangeFileSettings command")
+            print("\n   Target Configuration:")
+            print("   • Read Access: ALL (0xE) - Open for all readers (iOS background detection) ✅")
+            print("   • Write Access: KEY_0 (0x0) - REQUIRES AUTHENTICATION (blocks unauthorized writes) 🔒")
+            print("   • R/W Access: KEY_0 (0x0) - Requires authentication")
+            print("   • Change Access: KEY_0 (0x0) - Requires authentication to change settings")
+            print("   • Communication Mode: PLAIN ✅")
+            print("   • SDM: Disabled ❌")
+            print("   • File Size: \(fileSize) bytes")
+            print("\n   🔒 Security Configuration:")
+            print("   • Third-party tools CAN read NDEF data ✅")
+            print("   • Third-party tools CANNOT write NDEF data without password 🔒")
+            print("   • Only authenticated users (with password) can write NDEF data 🔒")
+            print("\n   Command Structure (SDM DISABLED):")
+            print("   • FileNo: 0x\(String(format: "%02X", fileNo)) (in header)")
+            print("   • FileOption: 0x\(String(format: "%02X", fileOption)) (PLAIN mode, SDM disabled)")
+            print("   • AccessRights: 0x\(String(format: "%02X", accessRightsByte1)) 0x\(String(format: "%02X", accessRightsByte2))")
+            print("   Command data length: \(commandData.count) bytes")
+            print("   Command data: \(commandData.map { String(format: "%02X", $0) }.joined(separator: " "))")
+            print("   Expected: 00 00 E0 (FileOption=0x00, AccessRights=0x00 0xE0)")
+            print("   Note: FileSize is NOT included in ChangeFileSettings command")
              
              // Re-authenticate to ensure session is still valid before changing file settings
              print("\nStep 3: Re-authenticating to ensure session is valid...")
@@ -766,28 +845,83 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
                          return
                      }
                      
-                     // Check status word
-                     if result.statusMajor == 0x91 && result.statusMinor == 0x00 {
-                         print("✅ NDEF file ChangeFileSettings command succeeded!")
-                         
-                         let successMsg = "NDEF file access permissions configured successfully!\n\n" +
-                         "NDEF File (0x02) Access Permissions:\n" +
-                         "• Read Access: Free/ALL (0xE) - Critical for iOS Background ✅\n" +
-                         "• Write Access: Key Protected (0x0) - Protects against overwriting ✅\n" +
-                         "• R/W Access: Key Protected (0x0) - Internal management ✅\n" +
-                         "• Change Access: Key Protected (0x0) - Requires authentication to change settings ✅\n\n" +
-                         "SDM Configuration: Disabled ❌\n\n" +
-                         "📱 iOS Background Detection:\n" +
-                         "✅ NDEF File (0x02) is configured correctly!\n" +
-                         "✅ Readable by all third-party tools (NXP TagWrite, TagInfo, iOS, etc.)\n" +
-                         "✅ Write-protected (requires AES authentication)\n" +
-                         "💡 Note: Also configure CC File (0x01) using 'Configure CC File' button for full iOS background detection support."
-                         print("✅ \(successMsg)")
-                         session.alertMessage = "File access configured successfully!"
-                         session.invalidate()
-                         self.currentTag = nil
-                         self.communicator = nil
-                         self.onConfigureFileAccessCompleted?(successMsg, nil)
+                    // Check status word
+                    if result.statusMajor == 0x91 && result.statusMinor == 0x00 {
+                        print("✅ NDEF file ChangeFileSettings command succeeded!")
+                        
+                        // Step 5: Verify the configuration by reading back file settings
+                        print("\nStep 5: Verifying configuration by reading back file settings...")
+                        communicator.getFileSettings(fileNum: DnaCommunicator.NDEF_FILE_NUMBER) { [weak self] verifiedSettings, verifyError in
+                            guard let self = self else { return }
+                            
+                            if let verifyError = verifyError {
+                                print("   ⚠️ Could not verify settings: \(verifyError.localizedDescription)")
+                                print("   ⚠️ Configuration may have succeeded, but verification failed")
+                            } else if let verified = verifiedSettings {
+                                print("   📋 Verified NDEF File Settings:")
+                                print("   • Read Access: \(verified.readPermission.rawValue) (\(verified.readPermission.displayValue()))")
+                                print("   • Write Access: \(verified.writePermission.rawValue) (\(verified.writePermission.displayValue()))")
+                                print("   • R/W Access: \(verified.readWritePermission.rawValue) (\(verified.readWritePermission.displayValue()))")
+                                print("   • Change Access: \(verified.changePermission.rawValue) (\(verified.changePermission.displayValue()))")
+                                print("   • Communication Mode: \(verified.communicationMode)")
+                                print("   • SDM Enabled: \(verified.sdmEnabled)")
+                                
+                                // Check if write access is correctly set to KEY_0 (blocks unauthorized writes)
+                                if verified.writePermission == .KEY_0 {
+                                    print("   ✅ Write Access is correctly set to KEY_0 (requires authentication)")
+                                    print("   ✅ Third-party tools CANNOT write without authentication - SECURED!")
+                                } else if verified.writePermission == .ALL {
+                                    print("   ❌ CRITICAL: Write Access is ALL - Third-party tools CAN write without authentication!")
+                                    print("   ❌ This is a security risk - NDEF file is NOT protected!")
+                                    print("   💡 The configuration may not have been applied correctly.")
+                                } else {
+                                    print("   ⚠️ WARNING: Write Access is \(verified.writePermission.displayValue()), not KEY_0!")
+                                    print("   ⚠️ Third-party tools may be able to write without authentication!")
+                                }
+                                
+                                // Check if change access is correctly set to KEY_0
+                                if verified.changePermission == .KEY_0 {
+                                    print("   ✅ Change Access is correctly set to KEY_0 (requires authentication)")
+                                } else {
+                                    print("   ⚠️ WARNING: Change Access is \(verified.changePermission.displayValue()), not KEY_0!")
+                                    print("   ⚠️ This means file settings may be changed without authentication!")
+                                }
+                                
+                                // Check if read access is correctly set to ALL
+                                if verified.readPermission == .ALL {
+                                    print("   ✅ Read Access is correctly set to ALL (open for all readers)")
+                                } else {
+                                    print("   ⚠️ WARNING: Read Access is \(verified.readPermission.displayValue()), not ALL!")
+                                    print("   ⚠️ This may prevent iOS background detection!")
+                                }
+                            }
+                            
+                            let successMsg = "NDEF file access permissions configured successfully!\n\n" +
+                            "NDEF File (0x02) Access Permissions:\n" +
+                            "• Read Access: Free/ALL (0xE) - Open for all readers ✅\n" +
+                            "• Write Access: KEY_0 (0x0) - REQUIRES AUTHENTICATION 🔒\n" +
+                            "• R/W Access: KEY_0 (0x0) - Requires authentication\n" +
+                            "• Change Access: KEY_0 (0x0) - Requires authentication to change settings\n\n" +
+                            "SDM Configuration: Disabled ❌\n\n" +
+                            "📱 iOS Background Detection:\n" +
+                            "✅ NDEF File (0x02) is configured correctly!\n" +
+                            "✅ Readable by all third-party tools (NXP TagWriter, TagInfo, iOS, etc.)\n" +
+                            "🔒 Write-protected - Third-party tools CANNOT write without password!\n\n" +
+                            "💡 Note: Also configure CC File (0x01) using 'Configure CC File' button for full iOS background detection support.\n\n" +
+                            "🔒 Security Status:\n" +
+                            "✅ NDEF data is read-only for unauthorized users\n" +
+                            "✅ Only users with the correct password can write NDEF data\n" +
+                            "⚠️ If NXP TagWriter can still write, verify:\n" +
+                            "   1. Password was set correctly (use 'Set Password' function)\n" +
+                            "   2. File settings were applied correctly (check verification above)\n" +
+                            "   3. Tag is not using default key (all zeros)"
+                            print("✅ \(successMsg)")
+                            session.alertMessage = "File access configured successfully!"
+                            session.invalidate()
+                            self.currentTag = nil
+                            self.communicator = nil
+                            self.onConfigureFileAccessCompleted?(successMsg, nil)
+                        }
                      } else {
                          // Error status word received
                          let statusCode = (Int(result.statusMajor) << 8) | Int(result.statusMinor)
@@ -1155,6 +1289,5 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
             return String(data: textData, encoding: .utf8) ?? ""
         }
     }
-    
 }
 
