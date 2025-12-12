@@ -59,6 +59,11 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
         return Array(data)
     }
     
+    // Convert [UInt8] array to Data
+    private func bytesToData(_ bytes: [UInt8]) -> Data {
+        return Data(bytes)
+    }
+    
     // Default key (usually all zeros for factory default)
     private let defaultKey: Data = Data(repeating: 0x00, count: 16)
     
@@ -758,6 +763,14 @@ class NTAG424DNAScanner: NSObject, NFCTagReaderSessionDelegate {
              // - Change: 0x0 (Key 0) - Requires authentication to change settings
              let accessRightsByte1: UInt8 = (0x0 << 4) | 0x0  // R/W: 0x0 (Key 0), Change: 0x0 (Key 0) = 0x00
              let accessRightsByte2: UInt8 = (0xE << 4) | 0x0  // Read: 0xE (Free/ALL), Write: 0x0 (Key 0) = 0xE0
+             
+             // File size: Use current file size (3 bytes, little endian) - REQUIRED in ChangeFileSettings
+             let fileSize = currentSettings.fileSize ?? 256
+             let fileSizeBytes: [UInt8] = [
+                 UInt8(fileSize & 0xFF),
+                 UInt8((fileSize >> 8) & 0xFF),
+                 UInt8((fileSize >> 16) & 0xFF)
+             ]
              
             // Build command data
              // According to NTAG 424 DNA datasheet and NfcDnaKit's changeFileSettings helper:
