@@ -19,6 +19,7 @@
 		A1477E242EE6EFD100512935 /* DnaCommunicator+KeyCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1477E142EE6EFD100512935 /* DnaCommunicator+KeyCommands.swift */; };
 		A1477E252EE6EFD100512935 /* FileConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1477E0C2EE6EFD100512935 /* FileConfiguration.swift */; };
 		A1477E2A2EE6F34000512935 /* CryptoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = A1477E292EE6F34000512935 /* CryptoSwift */; };
+		A1911E3D2EF01715009E2F71 /* Rule NFC Clip.app in Embed App Clips */ = {isa = PBXBuildFile; fileRef = A1911E1A2EF01714009E2F71 /* Rule NFC Clip.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -36,7 +37,42 @@
 			remoteGlobalIDString = A16AAE442ED705B800DE128C;
 			remoteInfo = NFCTagWriter;
 		};
+		A1911E292EF01715009E2F71 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A16AAE3D2ED705B800DE128C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1911E192EF01714009E2F71;
+			remoteInfo = "Rule NFC Clip";
+		};
+		A1911E332EF01715009E2F71 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A16AAE3D2ED705B800DE128C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1911E192EF01714009E2F71;
+			remoteInfo = "Rule NFC Clip";
+		};
+		A1911E3A2EF01715009E2F71 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A16AAE3D2ED705B800DE128C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1911E192EF01714009E2F71;
+			remoteInfo = "Rule NFC Clip";
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A1911E3C2EF01715009E2F71 /* Embed App Clips */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/AppClips";
+			dstSubfolderSpec = 16;
+			files = (
+				A1911E3D2EF01715009E2F71 /* Rule NFC Clip.app in Embed App Clips */,
+			);
+			name = "Embed App Clips";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A1477E0C2EE6EFD100512935 /* FileConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileConfiguration.swift; sourceTree = "<group>"; };
@@ -53,6 +89,9 @@
 		A16AAE452ED705B800DE128C /* NFCTagWriter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NFCTagWriter.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A16AAE522ED705B900DE128C /* NFCTagWriterTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NFCTagWriterTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A16AAE5C2ED705B900DE128C /* NFCTagWriterUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NFCTagWriterUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1911E1A2EF01714009E2F71 /* Rule NFC Clip.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Rule NFC Clip.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1911E282EF01715009E2F71 /* Rule NFC ClipTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Rule NFC ClipTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1911E322EF01715009E2F71 /* Rule NFC ClipUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Rule NFC ClipUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -62,6 +101,13 @@
 				Info.plist,
 			);
 			target = A16AAE442ED705B800DE128C /* NFCTagWriter */;
+		};
+		A1911E442EF01715009E2F71 /* Exceptions for "Rule NFC Clip" folder in "Rule NFC Clip" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A1911E192EF01714009E2F71 /* Rule NFC Clip */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -84,6 +130,24 @@
 			path = NFCTagWriter;
 			sourceTree = "<group>";
 		};
+		A1911E1B2EF01714009E2F71 /* Rule NFC Clip */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A1911E442EF01715009E2F71 /* Exceptions for "Rule NFC Clip" folder in "Rule NFC Clip" target */,
+			);
+			path = "Rule NFC Clip";
+			sourceTree = "<group>";
+		};
+		A1911E2B2EF01715009E2F71 /* Rule NFC ClipTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Rule NFC ClipTests";
+			sourceTree = "<group>";
+		};
+		A1911E352EF01715009E2F71 /* Rule NFC ClipUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Rule NFC ClipUITests";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -103,6 +167,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A16AAE592ED705B900DE128C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1911E172EF01714009E2F71 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1911E252EF01715009E2F71 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1911E2F2EF01715009E2F71 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -160,6 +245,9 @@
 				A1477E1A2EE6EFD100512935 /* NfcDnaKit */,
 				A16AAE552ED705B900DE128C /* NFCTagWriterTests */,
 				A16AAE5F2ED705B900DE128C /* NFCTagWriterUITests */,
+				A1911E1B2EF01714009E2F71 /* Rule NFC Clip */,
+				A1911E2B2EF01715009E2F71 /* Rule NFC ClipTests */,
+				A1911E352EF01715009E2F71 /* Rule NFC ClipUITests */,
 				A16AAE462ED705B800DE128C /* Products */,
 				A16AAE7C2ED7070400DE128C /* NFCTagWriter */,
 			);
@@ -171,6 +259,9 @@
 				A16AAE452ED705B800DE128C /* NFCTagWriter.app */,
 				A16AAE522ED705B900DE128C /* NFCTagWriterTests.xctest */,
 				A16AAE5C2ED705B900DE128C /* NFCTagWriterUITests.xctest */,
+				A1911E1A2EF01714009E2F71 /* Rule NFC Clip.app */,
+				A1911E282EF01715009E2F71 /* Rule NFC ClipTests.xctest */,
+				A1911E322EF01715009E2F71 /* Rule NFC ClipUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -185,10 +276,12 @@
 				A16AAE412ED705B800DE128C /* Sources */,
 				A16AAE422ED705B800DE128C /* Frameworks */,
 				A16AAE432ED705B800DE128C /* Resources */,
+				A1911E3C2EF01715009E2F71 /* Embed App Clips */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A1911E3B2EF01715009E2F71 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				A16AAE7C2ED7070400DE128C /* NFCTagWriter */,
@@ -247,6 +340,74 @@
 			productReference = A16AAE5C2ED705B900DE128C /* NFCTagWriterUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		A1911E192EF01714009E2F71 /* Rule NFC Clip */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1911E452EF01715009E2F71 /* Build configuration list for PBXNativeTarget "Rule NFC Clip" */;
+			buildPhases = (
+				A1911E162EF01714009E2F71 /* Sources */,
+				A1911E172EF01714009E2F71 /* Frameworks */,
+				A1911E182EF01714009E2F71 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A1911E1B2EF01714009E2F71 /* Rule NFC Clip */,
+			);
+			name = "Rule NFC Clip";
+			packageProductDependencies = (
+			);
+			productName = "Rule NFC Clip";
+			productReference = A1911E1A2EF01714009E2F71 /* Rule NFC Clip.app */;
+			productType = "com.apple.product-type.application.on-demand-install-capable";
+		};
+		A1911E272EF01715009E2F71 /* Rule NFC ClipTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1911E462EF01715009E2F71 /* Build configuration list for PBXNativeTarget "Rule NFC ClipTests" */;
+			buildPhases = (
+				A1911E242EF01715009E2F71 /* Sources */,
+				A1911E252EF01715009E2F71 /* Frameworks */,
+				A1911E262EF01715009E2F71 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A1911E2A2EF01715009E2F71 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A1911E2B2EF01715009E2F71 /* Rule NFC ClipTests */,
+			);
+			name = "Rule NFC ClipTests";
+			packageProductDependencies = (
+			);
+			productName = "Rule NFC ClipTests";
+			productReference = A1911E282EF01715009E2F71 /* Rule NFC ClipTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		A1911E312EF01715009E2F71 /* Rule NFC ClipUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1911E472EF01715009E2F71 /* Build configuration list for PBXNativeTarget "Rule NFC ClipUITests" */;
+			buildPhases = (
+				A1911E2E2EF01715009E2F71 /* Sources */,
+				A1911E2F2EF01715009E2F71 /* Frameworks */,
+				A1911E302EF01715009E2F71 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A1911E342EF01715009E2F71 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A1911E352EF01715009E2F71 /* Rule NFC ClipUITests */,
+			);
+			name = "Rule NFC ClipUITests";
+			packageProductDependencies = (
+			);
+			productName = "Rule NFC ClipUITests";
+			productReference = A1911E322EF01715009E2F71 /* Rule NFC ClipUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -254,7 +415,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1640;
+				LastSwiftUpdateCheck = 2610;
 				LastUpgradeCheck = 1640;
 				TargetAttributes = {
 					A16AAE442ED705B800DE128C = {
@@ -267,6 +428,17 @@
 					A16AAE5B2ED705B900DE128C = {
 						CreatedOnToolsVersion = 16.4;
 						TestTargetID = A16AAE442ED705B800DE128C;
+					};
+					A1911E192EF01714009E2F71 = {
+						CreatedOnToolsVersion = 26.1.1;
+					};
+					A1911E272EF01715009E2F71 = {
+						CreatedOnToolsVersion = 26.1.1;
+						TestTargetID = A1911E192EF01714009E2F71;
+					};
+					A1911E312EF01715009E2F71 = {
+						CreatedOnToolsVersion = 26.1.1;
+						TestTargetID = A1911E192EF01714009E2F71;
 					};
 				};
 			};
@@ -290,6 +462,9 @@
 				A16AAE442ED705B800DE128C /* NFCTagWriter */,
 				A16AAE512ED705B900DE128C /* NFCTagWriterTests */,
 				A16AAE5B2ED705B900DE128C /* NFCTagWriterUITests */,
+				A1911E192EF01714009E2F71 /* Rule NFC Clip */,
+				A1911E272EF01715009E2F71 /* Rule NFC ClipTests */,
+				A1911E312EF01715009E2F71 /* Rule NFC ClipUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -310,6 +485,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A16AAE5A2ED705B900DE128C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1911E182EF01714009E2F71 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1911E262EF01715009E2F71 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1911E302EF01715009E2F71 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -351,6 +547,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A1911E162EF01714009E2F71 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1911E242EF01715009E2F71 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1911E2E2EF01715009E2F71 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -363,6 +580,21 @@
 			isa = PBXTargetDependency;
 			target = A16AAE442ED705B800DE128C /* NFCTagWriter */;
 			targetProxy = A16AAE5D2ED705B900DE128C /* PBXContainerItemProxy */;
+		};
+		A1911E2A2EF01715009E2F71 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1911E192EF01714009E2F71 /* Rule NFC Clip */;
+			targetProxy = A1911E292EF01715009E2F71 /* PBXContainerItemProxy */;
+		};
+		A1911E342EF01715009E2F71 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1911E192EF01714009E2F71 /* Rule NFC Clip */;
+			targetProxy = A1911E332EF01715009E2F71 /* PBXContainerItemProxy */;
+		};
+		A1911E3B2EF01715009E2F71 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1911E192EF01714009E2F71 /* Rule NFC Clip */;
+			targetProxy = A1911E3A2EF01715009E2F71 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -496,7 +728,7 @@
 				CODE_SIGN_ENTITLEMENTS = NFCTagWriter/NFCTagWriter.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = 2A2G9N54ZA;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -509,11 +741,12 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = andy.liu.NFCTagWriter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -531,7 +764,7 @@
 				CODE_SIGN_ENTITLEMENTS = NFCTagWriter/NFCTagWriter.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = 2A2G9N54ZA;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -544,11 +777,12 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = andy.liu.NFCTagWriter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -630,6 +864,166 @@
 			};
 			name = Release;
 		};
+		A1911E3E2EF01715009E2F71 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Rule NFC Clip/Rule_NFC_Clip.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = 2A2G9N54ZA;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Rule NFC Clip/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = NFCTagWriter;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = andy.liu.NFCTagWriter.Clip;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A1911E3F2EF01715009E2F71 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Rule NFC Clip/Rule_NFC_Clip.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = 2A2G9N54ZA;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Rule NFC Clip/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = NFCTagWriter;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = andy.liu.NFCTagWriter.Clip;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A1911E402EF01715009E2F71 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2A2G9N54ZA;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "andy.liu.NFCTagWriter.Rule-NFC-ClipTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Rule NFC Clip.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Rule NFC Clip";
+			};
+			name = Debug;
+		};
+		A1911E412EF01715009E2F71 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2A2G9N54ZA;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "andy.liu.NFCTagWriter.Rule-NFC-ClipTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Rule NFC Clip.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Rule NFC Clip";
+			};
+			name = Release;
+		};
+		A1911E422EF01715009E2F71 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2A2G9N54ZA;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "andy.liu.NFCTagWriter.Rule-NFC-ClipUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "Rule NFC Clip";
+			};
+			name = Debug;
+		};
+		A1911E432EF01715009E2F71 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2A2G9N54ZA;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "andy.liu.NFCTagWriter.Rule-NFC-ClipUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "Rule NFC Clip";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -665,6 +1059,33 @@
 			buildConfigurations = (
 				A16AAE6D2ED705B900DE128C /* Debug */,
 				A16AAE6E2ED705B900DE128C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1911E452EF01715009E2F71 /* Build configuration list for PBXNativeTarget "Rule NFC Clip" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1911E3E2EF01715009E2F71 /* Debug */,
+				A1911E3F2EF01715009E2F71 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1911E462EF01715009E2F71 /* Build configuration list for PBXNativeTarget "Rule NFC ClipTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1911E402EF01715009E2F71 /* Debug */,
+				A1911E412EF01715009E2F71 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1911E472EF01715009E2F71 /* Build configuration list for PBXNativeTarget "Rule NFC ClipUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1911E422EF01715009E2F71 /* Debug */,
+				A1911E432EF01715009E2F71 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

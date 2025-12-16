@@ -5,11 +5,14 @@
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:mesh.firewalla.net</string>
-		<string>appclips:mesh.firewalla.net</string>
 	</array>
 	<key>com.apple.developer.nfc.readersession.formats</key>
 	<array>
 		<string>TAG</string>
+	</array>
+	<key>com.apple.developer.parent-application-identifiers</key>
+	<array>
+		<string>$(AppIdentifierPrefix)andy.liu.NFCTagWriter</string>
 	</array>
 </dict>
 </plist>

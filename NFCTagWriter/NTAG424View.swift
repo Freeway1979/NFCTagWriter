@@ -17,7 +17,7 @@ struct NTAG424View: View {
     @State private var tagUID: String = ""  // Store the last detected tag UID
     
     @State private var password: String = "915565AB915565AB"  // 16 characters for 16-byte key
-    @State private var textToWrite: String = "https://firewalla.com/nfc?gid=915565a3-65c7-4a2b-8629-194d80ed824b&rule=249"
+    @State private var textToWrite: String = "https://mesh.firewalla.net/nfc?gid=915565a3-65c7-4a2b-8629-194d80ed824b&rule=249"
     @State private var textRead: String = ""
     @FocusState private var isPasswordFocused: Bool
     @FocusState private var isTextFieldFocused: Bool
@@ -51,6 +51,7 @@ struct NTAG424View: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(Color.blue.opacity(0.1))
                                 .cornerRadius(8)
+                                .textSelection(.enabled)
                         }
                         .padding(.horizontal)
                     }
@@ -193,6 +194,7 @@ struct NTAG424View: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(Color.gray.opacity(0.1))
                                 .cornerRadius(8)
+                                .textSelection(.enabled)
                         }
                         .padding(.horizontal)
                     }
@@ -207,6 +209,7 @@ struct NTAG424View: View {
                                 .padding()
                                 .background(Color.gray.opacity(0.1))
                                 .cornerRadius(8)
+                                .textSelection(.enabled)
                         }
                         .padding(.horizontal)
                     }
@@ -302,6 +305,7 @@ struct NTAG424View: View {
                         return
                     }
                     guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true) else { return }
+                    
                     // 4. Extract Query Parameters
                     if let gidItem = components.queryItems?.first(where: { $0.name == "gid" }),
                        let gid = gidItem.value,
