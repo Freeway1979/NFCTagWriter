@@ -99,21 +99,21 @@ struct NTAG424View: View {
                     .padding(.horizontal)
                     
                     // Configure CC File Button (for iOS Background Detection)
-                    Button(action: {
-                        configureCCFile()
-                    }) {
-                        HStack {
-                            Image(systemName: "iphone.radiowaves.left.and.right")
-                            Text("Configure CC File")
-                        }
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.blue)
-                        .cornerRadius(10)
-                    }
-                    .padding(.horizontal)
+//                    Button(action: {
+//                        configureCCFile()
+//                    }) {
+//                        HStack {
+//                            Image(systemName: "iphone.radiowaves.left.and.right")
+//                            Text("Configure CC File")
+//                        }
+//                        .font(.headline)
+//                        .foregroundColor(.white)
+//                        .padding()
+//                        .frame(maxWidth: .infinity)
+//                        .background(Color.blue)
+//                        .cornerRadius(10)
+//                    }
+//                    .padding(.horizontal)
                     
                     // Configure File Access Button
                     Button(action: {
@@ -231,7 +231,7 @@ struct NTAG424View: View {
                 }
                 .padding()
             }
-            .navigationTitle("NTAG 424")
+            .navigationTitle("NTAG 424 Writer")
             .navigationBarTitleDisplayMode(.inline)
             .scrollDismissesKeyboard(.interactively)
         }

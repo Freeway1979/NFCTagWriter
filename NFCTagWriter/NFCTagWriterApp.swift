@@ -13,7 +13,7 @@ struct NFCTagWriterApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            NTAG424View()
                 .environmentObject(router)
                 // 1. Handle REAL Deep Links (Production)
                 // This fires when a user taps a link or scans a code

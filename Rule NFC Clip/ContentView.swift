@@ -6,16 +6,22 @@
 //
 
 import SwiftUI
+import StoreKit
 
 struct ContentView: View {
+    let firewallaAppleId = "1180904053"
+    @State private var showOverlay = false
+
     var body: some View {
         VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
         }
-        .padding()
+        .onAppear {
+            showOverlay = true
+        }
+        .appStoreOverlay(isPresented: $showOverlay) {
+            SKOverlay.AppConfiguration(appIdentifier: firewallaAppleId,
+                                       position: .bottom)
+        }
     }
 }
 
